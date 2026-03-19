@@ -1,0 +1,110 @@
+.nfa-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.header-section {
+  margin-bottom: 24px;
+}
+
+.header-section h2 {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.simulator-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  flex: 1;
+}
+
+.left-panel, .right-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.form-group-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-group-row .form-group {
+  flex: 1;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.control-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.trace-box {
+  background-color: var(--bg-primary);
+  border-radius: 6px;
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+}
+
+.trace-line {
+  padding: 6px 8px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.trace-line.current {
+  background-color: rgba(99, 102, 241, 0.2);
+  border-left: 3px solid var(--accent-primary);
+}
+
+.trace-line.success {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: var(--accent-secondary);
+  font-weight: bold;
+}
+
+.trace-line.error {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--error);
+  font-weight: bold;
+}
+
+.step-num {
+  color: var(--text-muted);
+  margin-right: 8px;
+  display: inline-block;
+  min-width: 60px;
+}
+
+.visualization-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.visualization-panel .graph-container {
+  height: 400px;
+  flex: none;
+}

@@ -1,0 +1,4 @@
+✓ Project "Landing" created!
+
+Project ID: d6034efd-f673-4257-87ef-878e81d39944
+Project URL: https://app.superdesign.dev/teams/9fdae7fe-23cb-4dd5-9c58-5cadf15392c2/projects/d6034efd-f673-4257-87ef-878e81d39944

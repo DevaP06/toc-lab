@@ -1,0 +1,292 @@
+import { DFA } from './dfa';
+import { NFA } from './nfa';
+
+/**
+ * Converts an NFA to a DFA using the Subset Construction algorithm.
+ * @param {NFA} nfa - The NFA instance to convert
+ * @returns {Object} - Contains the resulting DFA definition, the state mapping, and construction steps
+ */
+export function convertNfaToDfa(nfa) {
+  const alphabet = Array.from(nfa.alphabet).filter(s => s !== 'ε' && s !== 'epsilon' && s !== null && s !== '');
+  
+  // Helper to format a set of states as a string name for the DFA
+  const formatSetName = (set) => {
+    if (set.size === 0) return 'DEAD';
+    return Array.from(set).sort().join('_');
+  };
+
+  const startClosure = nfa.epsilonClosure([nfa.startState]);
+  const startDfaStateName = formatSetName(startClosure);
+
+  const dfaStates = new Set();
+  const dfaTransitions = {};
+  const dfaAcceptStates = new Set();
+  
+  // Queue stores sets of NFA states
+  const queue = [startClosure];
+  const processedNames = new Set([startDfaStateName]);
+  
+  const constructionSteps = [];
+
+  // Initialize
+  dfaStates.add(startDfaStateName);
+  const startContainsAccept = Array.from(startClosure).some(s => nfa.acceptStates.has(s));
+  if (startContainsAccept) dfaAcceptStates.add(startDfaStateName);
+
+  constructionSteps.push({
+    message: `1. Computed ε-closure of start state '${nfa.startState}' -> ${startDfaStateName}`,
+    stateCreated: startDfaStateName,
+    isAccept: startContainsAccept
+  });
+
+  while (queue.length > 0) {
+    const currentSet = queue.shift();
+    const currentName = formatSetName(currentSet);
+    
+    if (!dfaTransitions[currentName]) dfaTransitions[currentName] = {};
+
+    for (const symbol of alphabet) {
+      // 1. Find all reachable NFA states on symbol
+      const reachable = new Set();
+      for (const nfaState of currentSet) {
+        let targets = nfa.transition[nfaState]?.[symbol] || [];
+        if (!Array.isArray(targets)) targets = [targets];
+        for (const t of targets) reachable.add(t);
+      }
+
+      // 2. Compute epsilon closure of the reachable states
+      const closureSet = nfa.epsilonClosure(reachable);
+      const targetName = formatSetName(closureSet);
+
+      dfaTransitions[currentName][symbol] = targetName;
+
+      constructionSteps.push({
+        message: `From ${currentName} on '${symbol}': Reachable {${Array.from(reachable).sort().join(',')}}, ε-closure -> ${targetName}`,
+        transitionAdded: `${currentName} --${symbol}--> ${targetName}`
+      });
+
+      // 3. If new set, add to queue and DFA states
+      if (!processedNames.has(targetName)) {
+        processedNames.add(targetName);
+        queue.push(closureSet);
+        dfaStates.add(targetName);
+        
+        const isAccept = Array.from(closureSet).some(s => nfa.acceptStates.has(s));
+        if (isAccept) dfaAcceptStates.add(targetName);
+        
+        constructionSteps.push({
+          message: `   Added new state: ${targetName} ${isAccept ? '(Accepting)' : ''}`,
+          stateCreated: targetName,
+          isAccept
+        });
+      }
+    }
+  }
+
+  // Compile definition string ready for the DFA Simulator format
+  const transitionLines = [];
+  for (const from in dfaTransitions) {
+    for (const symbol in dfaTransitions[from]) {
+      transitionLines.push(`${from}, ${symbol}, ${dfaTransitions[from][symbol]}`);
+    }
+  }
+
+  const dfaDefinitionObj = {
+    states: Array.from(dfaStates).join(', '),
+    alphabet: alphabet.join(', '),
+    startState: startDfaStateName,
+    acceptStates: Array.from(dfaAcceptStates).join(', '),
+    transitions: transitionLines.join('\n')
+  };
+
+  // Compile full DFA instance
+  const actualTransitionsObj = {};
+  for (const from in dfaTransitions) {
+      actualTransitionsObj[from] = {};
+      for (const symbol in dfaTransitions[from]) {
+          actualTransitionsObj[from][symbol] = dfaTransitions[from][symbol];
+      }
+  }
+  
+  const dfaInstance = new DFA(
+      Array.from(dfaStates),
+      alphabet,
+      actualTransitionsObj,
+      startDfaStateName,
+      Array.from(dfaAcceptStates)
+  );
+
+  return { dfaDefinitionFormatted: dfaDefinitionObj, dfaInstance, constructionSteps };
+}
+
+/**
+ * Regex parsing and Thompson's Construction (From user resources)
+ */
+export function insertConcatenation(regex) {
+  let result = '';
+  for (let i = 0; i < regex.length; i++) {
+    const c = regex[i];
+    result += c;
+
+    if (i + 1 < regex.length) {
+      const next = regex[i + 1];
+      if (
+        (isOperand(c) || c === '*' || c === ')') &&
+        (isOperand(next) || next === '(')
+      ) {
+        result += '.';
+      }
+    }
+  }
+  return result;
+}
+
+export function infixToPostfix(regex) {
+  const precedence = { '|': 1, '.': 2, '*': 3 };
+  let output = '';
+  const stack = [];
+
+  for (const c of regex) {
+    if (isOperand(c)) {
+      output += c;
+    } else if (c === '(') {
+      stack.push(c);
+    } else if (c === ')') {
+      while (stack.length > 0 && stack[stack.length - 1] !== '(') {
+        output += stack.pop();
+      }
+      stack.pop();
+    } else if (c === '*') {
+      output += c;
+    } else {
+      while (
+        stack.length > 0 &&
+        stack[stack.length - 1] !== '(' &&
+        (precedence[stack[stack.length - 1]] || 0) >= (precedence[c] || 0)
+      ) {
+        output += stack.pop();
+      }
+      stack.push(c);
+    }
+  }
+
+  while (stack.length > 0) {
+    output += stack.pop();
+  }
+
+  return output;
+}
+
+export function regexToPostfix(regex) {
+  const withConcat = insertConcatenation(regex);
+  return infixToPostfix(withConcat);
+}
+
+function isOperand(c) {
+  return c === 'a' || c === 'b'; // Exactly as specified by user
+}
+
+const EPSILON = 'ε';
+
+export function convertRegexToNfa(regexStr) {
+  const postfix = regexToPostfix(regexStr.replace(/\s+/g, ''));
+  let stateCounter = 0;
+  function newState() { return `q${stateCounter++}`; }
+
+  function symbolNFA(symbol) {
+    const start = newState();
+    const accept = newState();
+    const transitions = { [start]: { [symbol]: [accept] } };
+    return { start, accept, transitions, states: [start, accept] };
+  }
+
+  function unionNFA(frag1, frag2) {
+    const start = newState();
+    const accept = newState();
+    const transitions = {
+      ...frag1.transitions,
+      ...frag2.transitions,
+      [start]: { [EPSILON]: [frag1.start, frag2.start] },
+      [frag1.accept]: { [EPSILON]: [accept] },
+      [frag2.accept]: { [EPSILON]: [accept] },
+    };
+    const states = [start, ...frag1.states, ...frag2.states, accept];
+    return { start, accept, transitions, states };
+  }
+
+  function concatNFA(frag1, frag2) {
+    const transitions = {
+      ...frag1.transitions,
+      ...frag2.transitions,
+      [frag1.accept]: { [EPSILON]: [frag2.start] },
+    };
+    const states = [...frag1.states, ...frag2.states];
+    return { start: frag1.start, accept: frag2.accept, transitions, states };
+  }
+
+  function starNFA(frag) {
+    const start = newState();
+    const accept = newState();
+    const transitions = {
+      ...frag.transitions,
+      [start]: { [EPSILON]: [frag.start, accept] },
+      [frag.accept]: { [EPSILON]: [frag.start, accept] },
+    };
+    const states = [start, ...frag.states, accept];
+    return { start, accept, transitions, states };
+  }
+
+  const stack = [];
+
+  for (const c of postfix) {
+    switch (c) {
+      case 'a':
+      case 'b':
+        stack.push(symbolNFA(c));
+        break;
+      case '.': {
+        const frag2 = stack.pop();
+        const frag1 = stack.pop();
+        stack.push(concatNFA(frag1, frag2));
+        break;
+      }
+      case '|': {
+        const frag2 = stack.pop();
+        const frag1 = stack.pop();
+        stack.push(unionNFA(frag1, frag2));
+        break;
+      }
+      case '*': {
+        const frag = stack.pop();
+        stack.push(starNFA(frag));
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  const result = stack.pop();
+  
+  // Format to Simulator NFA structure
+  const transitionLines = [];
+  for (const from in result.transitions) {
+    for (const symbol in result.transitions[from]) {
+      for (const to of result.transitions[from][symbol]) {
+        transitionLines.push(`${from}, ${symbol}, ${to}`);
+      }
+    }
+  }
+
+  const nfaDefinitionObj = {
+    states: result.states.join(', '),
+    alphabet: 'a, b',
+    startState: result.start,
+    acceptStates: result.accept,
+    transitions: transitionLines.join('\n')
+  };
+
+  const nfaInstance = new NFA(result.states, ['a', 'b'], result.transitions, result.start, [result.accept]);
+
+  return { nfaDefinitionFormatted: nfaDefinitionObj, nfaInstance, constructionSteps: ["Compiled Regex using precise provided Thompson's Construction format."], postfix };
+}
