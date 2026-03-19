@@ -57,7 +57,7 @@ export function AnimeNavBar({ items, className, defaultActive = "Home" }: NavBar
     <div className="fixed top-5 left-0 right-0 z-[9999]">
       <div className="flex justify-center pt-6">
         <motion.div 
-          className="flex items-center gap-3 bg-[#111827]/80 border border-[#374151] backdrop-blur-lg py-2 px-2 rounded-full shadow-lg relative"
+          className="flex items-center gap-4 bg-[#111827]/80 border border-[#374151] backdrop-blur-lg py-3 px-4 rounded-full shadow-lg relative"
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{
@@ -70,9 +70,9 @@ export function AnimeNavBar({ items, className, defaultActive = "Home" }: NavBar
           <Link
              to="/"
              onClick={() => setActiveTab("Home")}
-             className="flex items-center gap-2 pl-4 pr-2 border-r border-[#374151]"
+             className="flex items-center gap-3 pl-6 pr-4 border-r border-[#374151]"
           >
-              <div className="text-xl font-bold text-[#F9FAFB]">TOC Lab</div>
+              <div className="text-2xl font-bold text-[#F9FAFB]">TOC Lab</div>
           </Link>
 
           {items.map((item) => {
@@ -88,7 +88,7 @@ export function AnimeNavBar({ items, className, defaultActive = "Home" }: NavBar
                 onMouseLeave={() => setHoveredTab(null)}
                 className={cn(
                   "relative cursor-pointer text-sm font-semibold px-6 py-3 rounded-full transition-all duration-300",
-                  "text-[#9CA3AF] hover:text-[#F9FAFB]",
+                  "text-[#B0B9C3] hover:text-[#F9FAFB]",
                   isActive && "text-[#F9FAFB]"
                 )}
               >

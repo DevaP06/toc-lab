@@ -22,6 +22,13 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/*" element={<MainLayout />} />
         </Routes>
+        <footer className="app-footer">
+          <div>TOC Lab © 2026</div>
+          <div className="status-indicator">
+            <div className="status-dot"></div>
+            System Online
+          </div>
+        </footer>
       </div>
     </Router>
   );

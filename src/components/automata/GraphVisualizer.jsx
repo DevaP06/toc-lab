@@ -122,7 +122,7 @@ const GraphVisualizer = ({ automaton, activeNode }) => {
   const onEdgesChange = useCallback(changes => setEdges(eds => applyEdgeChanges(changes, eds)), []);
 
   return (
-    <div style={{ width: '100%', height: '400px', background: 'var(--bg-secondary)', borderRadius: 10, overflow: 'hidden' }}>
+    <div className="graph-container">
       <ReactFlow
         nodes={nodes}
         edges={edges}
