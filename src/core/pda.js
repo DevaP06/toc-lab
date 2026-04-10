@@ -29,6 +29,8 @@ export class PDA {
 
   simulateStepByStep(inputString) {
     // Each path tracks: state, stack (array of chars strings, top is last), inputConsumed, history
+    let configIdCounter = 1;
+
     const initialConfig = {
       id: 0,
       state: this.startState,
@@ -40,79 +42,79 @@ export class PDA {
 
     let currentConfigs = [initialConfig];
     const allSteps = [[initialConfig]]; // Array of configuration arrays per step iteration
-    
-    // Safety break to prevent infinite loops from epsilon cycles
-    const MAX_STEPS = 200;
+
+    // Safety cap to prevent infinite loops from epsilon cycles
+    const MAX_STEPS = 500;
     let stepCount = 0;
     let acceptedConfig = null;
+    let timedOut = false;
 
     while (currentConfigs.length > 0 && stepCount < MAX_STEPS) {
       stepCount++;
       const nextConfigs = [];
-      let advancedInput = false;
 
       for (const config of currentConfigs) {
-        // If string fully consumed
+        // If string fully consumed, check acceptance
         if (config.inputConsumed === inputString.length) {
-           if (this.acceptStates.has(config.state)) {
-             acceptedConfig = config;
-             config.status = 'ACCEPT';
-           } else {
-             // Still check for epsilon transitions that could lead to accept!
-             const epsilonMoves = this.getApplicableTransitions(config.state, 'ε', config.stack[config.stack.length - 1] || '');
-             if (epsilonMoves.length === 0) {
-               config.status = 'REJECT (No input left, not accepted)';
-             } else {
-               config.status = 'EVALUATING EPSILON';
-             }
-           }
+          if (this.acceptStates.has(config.state)) {
+            acceptedConfig = config;
+            config.status = 'ACCEPT';
+            break; // Found acceptance — no need to explore further
+          }
+          // Do NOT mark rejected here yet — epsilon moves below may still reach acceptance
         }
 
         if (acceptedConfig) break;
 
-        const nextSymbol = config.inputConsumed < inputString.length ? inputString[config.inputConsumed] : 'ε';
+        const nextSymbol = config.inputConsumed < inputString.length
+          ? inputString[config.inputConsumed]
+          : 'ε';
         const stackTop = config.stack.length > 0 ? config.stack[config.stack.length - 1] : '';
-        
+
         let possibleMoves = this.getApplicableTransitions(config.state, nextSymbol, stackTop);
-        // Also add pure epsilon input moves if we haven't exhausted string entirely
+        // Always check epsilon-input moves in parallel (covers post-exhaustion epsilon chains)
         if (nextSymbol !== 'ε') {
-           const eMoves = this.getApplicableTransitions(config.state, 'ε', stackTop);
-           possibleMoves = possibleMoves.concat(eMoves);
+          const eMoves = this.getApplicableTransitions(config.state, 'ε', stackTop);
+          possibleMoves = possibleMoves.concat(eMoves);
         }
 
-        if (possibleMoves.length === 0 && config.inputConsumed < inputString.length) {
-           config.status = 'DEAD PATH';
+        if (possibleMoves.length === 0) {
+          // No moves possible — this branch dies
+          config.status = config.inputConsumed < inputString.length
+            ? 'DEAD PATH'
+            : 'REJECT (No moves, not accepted)';
         }
 
         for (const move of possibleMoves) {
-           const newStack = [...config.stack];
-           // Pop
-           if (move.pop && move.pop !== 'ε') {
-             newStack.pop();
-           }
-           // Push (push symbols individually if it's a string like "AZ", but usually defined sequentially)
-           // If 'push' is "AB", we usually push 'B' then 'A' so 'A' is on top. We'll push in reverse order.
-           if (move.push && move.push !== 'ε') {
-             const pushArr = move.push.split('').reverse();
-             newStack.push(...pushArr);
-           }
+          const newStack = [...config.stack];
+          // Pop
+          if (move.pop && move.pop !== 'ε') {
+            newStack.pop();
+          }
+          // Push symbols in reverse so the first character ends up on top
+          // e.g. push="AB" → push B first then A → A is top
+          if (move.push && move.push !== 'ε') {
+            const pushArr = move.push.split('').reverse();
+            newStack.push(...pushArr);
+          }
 
-           const consumed = (move.input === 'ε' || move.input === '') ? config.inputConsumed : config.inputConsumed + 1;
-           if (consumed > config.inputConsumed) advancedInput = true;
+          const consumed = (move.input === 'ε' || move.input === '')
+            ? config.inputConsumed
+            : config.inputConsumed + 1;
 
-           nextConfigs.push({
-             id: Math.random(),
-             state: move.to,
-             stack: newStack,
-             inputConsumed: consumed,
-             status: 'ACTIVE',
-             history: [...config.history, move]
-           });
+          nextConfigs.push({
+            id: configIdCounter++,
+            state: move.to,
+            stack: newStack,
+            inputConsumed: consumed,
+            status: 'ACTIVE',
+            history: [...config.history, move]
+          });
         }
       }
 
       if (acceptedConfig) break;
-      
+
       if (nextConfigs.length > 0) {
         allSteps.push(nextConfigs);
         currentConfigs = nextConfigs;
@@ -121,10 +123,15 @@ export class PDA {
       }
     }
 
-    return { 
-      accepted: !!acceptedConfig, 
+    if (stepCount >= MAX_STEPS && !acceptedConfig) {
+      timedOut = true;
+    }
+
+    return {
+      accepted: !!acceptedConfig,
       finalConfig: acceptedConfig,
-      allSteps 
+      allSteps,
+      timedOut
     };
   }
 }

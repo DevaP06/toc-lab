@@ -29,23 +29,40 @@ export function minimizeDFA(dfa) {
   steps.push(`1. Removed unreachable states. Reachable states: {${states.join(', ')}}`);
 
   // 2. Initialize Distinguishability Table (Pairs)
+  // Use a virtual DEAD state to represent missing transitions (incomplete DFA support).
+  // DEAD is a non-accepting sink — distinguishable from any accept state.
+  const DEAD = '\x00DEAD\x00';
   const distinguishable = new Set(); // store pairs as "s1,s2" where s1 < s2
   const getPairKey = (s1, s2) => s1 < s2 ? `${s1},${s2}` : `${s2},${s1}`;
 
+  // Check if any transition is missing (DFA is incomplete)
+  const needsDead = states.some(s =>
+    Array.from(dfa.alphabet).some(a => !dfa.transition[s]?.[a])
+  );
+  // allStates includes DEAD only if the DFA is incomplete, so (state, DEAD) pairs exist
+  const allStates = needsDead ? [...states, DEAD] : [...states];
+
+  // Helper: resolve transition target, falling back to DEAD for missing transitions
+  const delta = (s, a) => {
+    if (s === DEAD) return DEAD;
+    return dfa.transition[s]?.[a] ?? DEAD;
+  };
+
   // Initially mark pairs where one is accept and one is reject
-  for (let i = 0; i < states.length; i++) {
-    for (let j = i + 1; j < states.length; j++) {
-      const p = states[i];
-      const q = states[j];
-      const pAccept = dfa.acceptStates.has(p);
-      const qAccept = dfa.acceptStates.has(q);
-      
+  // DEAD is non-accepting
+  for (let i = 0; i < allStates.length; i++) {
+    for (let j = i + 1; j < allStates.length; j++) {
+      const p = allStates[i];
+      const q = allStates[j];
+      const pAccept = p !== DEAD && dfa.acceptStates.has(p);
+      const qAccept = q !== DEAD && dfa.acceptStates.has(q);
+
       if (pAccept !== qAccept) {
         distinguishable.add(getPairKey(p, q));
       }
     }
   }
-  
+
   steps.push(`2. Marked all ({Accept}, {Non-Accept}) pairs as distinguishable.`);
 
   // 3. Mark transitions iteratively
@@ -53,24 +70,24 @@ export function minimizeDFA(dfa) {
   let iteration = 1;
   while (changed) {
     changed = false;
-    for (let i = 0; i < states.length; i++) {
-      for (let j = i + 1; j < states.length; j++) {
-        const p = states[i];
-        const q = states[j];
+    for (let i = 0; i < allStates.length; i++) {
+      for (let j = i + 1; j < allStates.length; j++) {
+        const p = allStates[i];
+        const q = allStates[j];
         if (distinguishable.has(getPairKey(p, q))) continue;
 
         for (const a of dfa.alphabet) {
-          const tp = dfa.transition[p]?.[a];
-          const tq = dfa.transition[q]?.[a];
+          const tp = delta(p, a);
+          const tq = delta(q, a);
 
-          // If both have transitions on 'a', check if their targets are distinguishable
-          if (tp && tq && tp !== tq) {
-             if (distinguishable.has(getPairKey(tp, tq))) {
-               distinguishable.add(getPairKey(p, q));
-               changed = true;
-               steps.push(`   Iteration ${iteration}: Marked (${p}, ${q}) because δ(${p}, ${a})=${tp} and δ(${q}, ${a})=${tq} are distinguishable.`);
-               break; // Move to next pair
-             }
+          // If targets differ, check if they are distinguishable
+          if (tp !== tq && distinguishable.has(getPairKey(tp, tq))) {
+            distinguishable.add(getPairKey(p, q));
+            changed = true;
+            const tpLabel = tp === DEAD ? 'DEAD' : tp;
+            const tqLabel = tq === DEAD ? 'DEAD' : tq;
+            steps.push(`   Iteration ${iteration}: Marked (${p}, ${q}) because δ(${p}, ${a})=${tpLabel} and δ(${q}, ${a})=${tqLabel} are distinguishable.`);
+            break; // Move to next pair
           }
         }
       }
@@ -81,6 +98,7 @@ export function minimizeDFA(dfa) {
   steps.push(`3. Table filling complete after ${iteration - 1} iterations.`);
 
   // 4. Group equivalent states (Find connected components of unmarked pairs)
+  // Only group original reachable states — DEAD is not a real state in the output DFA
   const equivalentPairs = [];
   for (let i = 0; i < states.length; i++) {
     for (let j = i + 1; j < states.length; j++) {

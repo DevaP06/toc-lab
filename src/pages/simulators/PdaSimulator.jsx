@@ -56,11 +56,14 @@ const PdaSimulator = () => {
   const handleRunAll = () => {
     const pda = loadPDA();
     if (!pda) return;
-    
+
     const result = pda.simulateStepByStep(definition.inputString.trim());
-    setSimulationParams({ steps: result.allSteps, currentStep: result.allSteps.length - 1, accepted: result.accepted });
+    setSimulationParams({ steps: result.allSteps, currentStep: result.allSteps.length - 1, accepted: result.accepted, timedOut: result.timedOut });
     if (result.finalConfig) {
       setActiveNodes([result.finalConfig.state]);
+    }
+    if (result.timedOut) {
+      alert('Warning: Simulation reached the step limit (500 steps). The PDA may have an infinite epsilon cycle. Result shown is inconclusive.');
     }
   };
 

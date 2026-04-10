@@ -54,10 +54,12 @@ const DfaSimulator = () => {
   const handleRunAll = () => {
     const dfa = loadDFA();
     if (!dfa) return;
-    
+
     const result = dfa.simulateStepByStep(definition.inputString.trim());
     setSimulationParams({ steps: result.steps, currentStep: result.steps.length - 1, accepted: result.accepted });
-    setActiveNode(result.finalState);
+    // finalState is only set on the acceptance path; fall back to the last known state
+    const lastStep = result.steps[result.steps.length - 1];
+    setActiveNode(result.finalState ?? lastStep?.from ?? null);
   };
 
   const handleStep = () => {

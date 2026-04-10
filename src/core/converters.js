@@ -130,8 +130,9 @@ export function insertConcatenation(regex) {
 
     if (i + 1 < regex.length) {
       const next = regex[i + 1];
+      // Insert explicit concat '.' between: (operand|*|+|)) followed by (operand|()
       if (
-        (isOperand(c) || c === '*' || c === ')') &&
+        (isOperand(c) || c === '*' || c === '+' || c === ')') &&
         (isOperand(next) || next === '(')
       ) {
         result += '.';
@@ -142,7 +143,8 @@ export function insertConcatenation(regex) {
 }
 
 export function infixToPostfix(regex) {
-  const precedence = { '|': 1, '.': 2, '*': 3 };
+  // * and + are postfix (highest precedence, emitted immediately)
+  const precedence = { '|': 1, '.': 2, '*': 3, '+': 3 };
   let output = '';
   const stack = [];
 
@@ -156,7 +158,8 @@ export function infixToPostfix(regex) {
         output += stack.pop();
       }
       stack.pop();
-    } else if (c === '*') {
+    } else if (c === '*' || c === '+') {
+      // Postfix quantifiers: emit directly (no stack needed, highest precedence)
       output += c;
     } else {
       while (
@@ -183,7 +186,8 @@ export function regexToPostfix(regex) {
 }
 
 function isOperand(c) {
-  return c === 'a' || c === 'b'; // Exactly as specified by user
+  // Any letter or digit is a valid operand symbol
+  return /[a-zA-Z0-9]/.test(c);
 }
 
 const EPSILON = 'ε';
@@ -193,7 +197,11 @@ export function convertRegexToNfa(regexStr) {
   let stateCounter = 0;
   function newState() { return `q${stateCounter++}`; }
 
+  // Collect actual alphabet symbols used in the regex
+  const alphabetSet = new Set();
+
   function symbolNFA(symbol) {
+    alphabetSet.add(symbol);
     const start = newState();
     const accept = newState();
     const transitions = { [start]: { [symbol]: [accept] } };
@@ -215,10 +223,16 @@ export function convertRegexToNfa(regexStr) {
   }
 
   function concatNFA(frag1, frag2) {
+    // Merge frag1.accept's epsilon targets rather than blindly overwriting,
+    // in case frag1.accept already has an epsilon entry (defensive merge).
+    const existingEps = frag1.transitions[frag1.accept]?.[EPSILON] || [];
     const transitions = {
       ...frag1.transitions,
       ...frag2.transitions,
-      [frag1.accept]: { [EPSILON]: [frag2.start] },
+      [frag1.accept]: {
+        ...(frag1.transitions[frag1.accept] || {}),
+        [EPSILON]: [...existingEps, frag2.start],
+      },
     };
     const states = [...frag1.states, ...frag2.states];
     return { start: frag1.start, accept: frag2.accept, transitions, states };
@@ -236,38 +250,56 @@ export function convertRegexToNfa(regexStr) {
     return { start, accept, transitions, states };
   }
 
+  // a+ = a followed by a* — one or more
+  function plusNFA(frag) {
+    const accept = newState();
+    const transitions = {
+      ...frag.transitions,
+      // From frag's accept: loop back to frag's start OR go to new accept
+      [frag.accept]: { [EPSILON]: [frag.start, accept] },
+    };
+    const states = [...frag.states, accept];
+    return { start: frag.start, accept, transitions, states };
+  }
+
   const stack = [];
 
   for (const c of postfix) {
-    switch (c) {
-      case 'a':
-      case 'b':
-        stack.push(symbolNFA(c));
-        break;
-      case '.': {
-        const frag2 = stack.pop();
-        const frag1 = stack.pop();
-        stack.push(concatNFA(frag1, frag2));
-        break;
+    if (isOperand(c)) {
+      stack.push(symbolNFA(c));
+    } else {
+      switch (c) {
+        case '.': {
+          const frag2 = stack.pop();
+          const frag1 = stack.pop();
+          stack.push(concatNFA(frag1, frag2));
+          break;
+        }
+        case '|': {
+          const frag2 = stack.pop();
+          const frag1 = stack.pop();
+          stack.push(unionNFA(frag1, frag2));
+          break;
+        }
+        case '*': {
+          const frag = stack.pop();
+          stack.push(starNFA(frag));
+          break;
+        }
+        case '+': {
+          const frag = stack.pop();
+          stack.push(plusNFA(frag));
+          break;
+        }
+        default:
+          break;
       }
-      case '|': {
-        const frag2 = stack.pop();
-        const frag1 = stack.pop();
-        stack.push(unionNFA(frag1, frag2));
-        break;
-      }
-      case '*': {
-        const frag = stack.pop();
-        stack.push(starNFA(frag));
-        break;
-      }
-      default:
-        break;
     }
   }
 
   const result = stack.pop();
-  
+  const alphabetArr = Array.from(alphabetSet).sort();
+
   // Format to Simulator NFA structure
   const transitionLines = [];
   for (const from in result.transitions) {
@@ -280,13 +312,13 @@ export function convertRegexToNfa(regexStr) {
 
   const nfaDefinitionObj = {
     states: result.states.join(', '),
-    alphabet: 'a, b',
+    alphabet: alphabetArr.join(', '),
     startState: result.start,
     acceptStates: result.accept,
     transitions: transitionLines.join('\n')
   };
 
-  const nfaInstance = new NFA(result.states, ['a', 'b'], result.transitions, result.start, [result.accept]);
+  const nfaInstance = new NFA(result.states, alphabetArr, result.transitions, result.start, [result.accept]);
 
-  return { nfaDefinitionFormatted: nfaDefinitionObj, nfaInstance, constructionSteps: ["Compiled Regex using precise provided Thompson's Construction format."], postfix };
+  return { nfaDefinitionFormatted: nfaDefinitionObj, nfaInstance, constructionSteps: ["Compiled Regex using Thompson's Construction. Supports |, *, + and any alphanumeric alphabet."], postfix };
 }

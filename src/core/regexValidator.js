@@ -1,6 +1,6 @@
 /**
- * Validates a regular expression over the alphabet {a, b}.
- * Allowed characters: a, b, |, *, (, )
+ * Validates a regular expression over any alphanumeric alphabet.
+ * Allowed characters: letters, digits, |, *, +, (, )
  * Validates balanced parentheses and structure.
  *
  * @param {string} regex - The regular expression string
@@ -11,11 +11,11 @@ export function validateRegex(regex) {
     return { valid: false, error: 'Regular expression cannot be empty.' };
   }
 
-  const allowed = /^[ab|*()]+$/;
+  const allowed = /^[a-zA-Z0-9|*+()]+$/;
   if (!allowed.test(regex)) {
     return {
       valid: false,
-      error: 'Invalid characters. Only a, b, |, *, (, ) are allowed.',
+      error: 'Invalid characters. Only letters, digits, |, *, +, (, ) are allowed.',
     };
   }
 
@@ -57,15 +57,19 @@ export function validateRegex(regex) {
     }
   }
 
-  // Check * is not at start or after ( or |
+  // Check * and + are not at start, after ( or |, or doubled (**)
   for (let i = 0; i < regex.length; i++) {
-    if (regex[i] === '*') {
+    if (regex[i] === '*' || regex[i] === '+') {
+      const op = regex[i];
       if (i === 0) {
-        return { valid: false, error: 'Kleene star * cannot be at the start.' };
+        return { valid: false, error: `'${op}' cannot be at the start.` };
       }
       const prev = regex[i - 1];
       if (prev === '(' || prev === '|') {
-        return { valid: false, error: 'Kleene star * must follow a symbol, ) or *.' };
+        return { valid: false, error: `'${op}' must follow a symbol, ) or *.` };
+      }
+      if (prev === '*' || prev === '+') {
+        return { valid: false, error: `Consecutive quantifiers '${prev}${op}' are not allowed.` };
       }
     }
   }
