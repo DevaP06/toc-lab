@@ -18,16 +18,7 @@ const Sidebar = () => {
       links: [
         { name: 'NFA → DFA', path: '/converters/nfa-to-dfa' },
         { name: 'Regex → NFA', path: '/converters/regex-to-nfa' },
-        { name: 'FA → Regex', path: '/converters/fa-to-regex' },
-        { name: 'CFG → CNF', path: '/converters/cfg-to-cnf' }
-      ]
-    },
-    {
-      title: 'GRAMMAR TOOLS',
-      links: [
-        { name: 'CFG Derivation', path: '/grammar/cfg-derivation' },
-        { name: 'Parse Tree', path: '/grammar/parse-tree' },
-        { name: 'CYK Parser', path: '/grammar/cyk-parser' }
+        { name: 'FA → Regex', path: '/converters/fa-to-regex' }
       ]
     },
     {

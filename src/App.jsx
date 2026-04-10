@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Workspace from './components/Workspace';
@@ -13,15 +13,18 @@ const MainLayout = () => (
   </div>
 );
 
-function App() {
+const AppShell = () => {
+  const location = useLocation();
+  const showChrome = location.pathname !== '/';
+
   return (
-    <Router>
-      <div className="app-container group-app">
-        <Navbar />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/*" element={<MainLayout />} />
-        </Routes>
+    <div className="app-container group-app">
+      {showChrome && <Navbar />}
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/*" element={<MainLayout />} />
+      </Routes>
+      {showChrome && (
         <footer className="app-footer">
           <div>TOC Lab © 2026</div>
           <div className="status-indicator">
@@ -29,7 +32,15 @@ function App() {
             System Online
           </div>
         </footer>
-      </div>
+      )}
+    </div>
+  );
+};
+
+function App() {
+  return (
+    <Router>
+      <AppShell />
     </Router>
   );
 }

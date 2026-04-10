@@ -55,6 +55,7 @@
 
 .text-gradient {
   background: linear-gradient(to right, var(--accent-primary), var(--accent-highlight));
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -147,9 +148,15 @@
 
 .features-section {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 24px;
   margin-top: 40px;
+}
+
+@media (max-width: 1024px) {
+  .features-section {
+    grid-template-columns: 1fr;
+  }
 }
 
 .feature-card {
@@ -159,7 +166,6 @@
 }
 
 .feature-card:hover {
-  transform: translateY(-5px);
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
   border-color: rgba(255, 255, 255, 0.1);
 }

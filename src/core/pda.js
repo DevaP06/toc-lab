@@ -135,3 +135,229 @@ export class PDA {
     };
   }
 }
+
+function createPDADefinition({ states, inputAlphabet, stackAlphabet, startState, startStack, acceptStates, transitions }) {
+  return {
+    states: states.join(', '),
+    inputAlphabet: inputAlphabet.join(', '),
+    stackAlphabet: stackAlphabet.join(', '),
+    startState,
+    startStack,
+    acceptStates: acceptStates.join(', '),
+    transitions: transitions.map(({ from, input, pop, push, to }) => `${from}, ${input}, ${pop}, ${push}, ${to}`).join('\n')
+  };
+}
+
+export function generateAnBnPDA() {
+  return new PDA(
+    ['q0', 'q1', 'q2'],
+    ['a', 'b'],
+    ['A', 'Z'],
+    'q0',
+    'Z',
+    ['q2'],
+    [
+      { from: 'q0', input: 'a', pop: 'Z', push: 'AZ', to: 'q0' },
+      { from: 'q0', input: 'a', pop: 'A', push: 'AA', to: 'q0' },
+      { from: 'q0', input: 'b', pop: 'A', push: 'ε', to: 'q1' },
+      { from: 'q1', input: 'b', pop: 'A', push: 'ε', to: 'q1' },
+      { from: 'q1', input: 'ε', pop: 'Z', push: 'Z', to: 'q2' }
+    ]
+  );
+}
+
+export function generateEvenPalindromePDA() {
+  // Even palindrome: wwᴿ  e.g. "abba", "baab", "aabbaa"
+  // Phase 1 (q0): push each symbol using epsilon-pop so any stack top is accepted.
+  // Midpoint guess: epsilon input + epsilon pop/push → switch to q1 without touching stack.
+  // Phase 2 (q1): pop matching symbols for the second half.
+  return new PDA(
+    ['q0', 'q1', 'qf'],
+    ['a', 'b'],
+    ['a', 'b', 'Z'],
+    'q0',
+    'Z',
+    ['qf'],
+    [
+      // Phase 1: push (ε pop = push on top regardless of current stack top)
+      { from: 'q0', input: 'a', pop: 'ε', push: 'a', to: 'q0' },
+      { from: 'q0', input: 'b', pop: 'ε', push: 'b', to: 'q0' },
+      // Midpoint guess: no input consumed, stack unchanged
+      { from: 'q0', input: 'ε', pop: 'ε', push: 'ε', to: 'q1' },
+      // Phase 2: pop matching symbols
+      { from: 'q1', input: 'a', pop: 'a', push: 'ε', to: 'q1' },
+      { from: 'q1', input: 'b', pop: 'b', push: 'ε', to: 'q1' },
+      // Accept when only the bottom marker Z remains
+      { from: 'q1', input: 'ε', pop: 'Z', push: 'Z', to: 'qf' }
+    ]
+  );
+}
+
+export function generateOddPalindromePDA() {
+  // Odd palindrome: wXwᴿ  e.g. "aba", "bab", "aabaa"
+  // Phase 1 (q0): push each symbol using epsilon-pop so any stack top is accepted.
+  // Middle-char guess: consume one symbol (the centre) without changing the stack,
+  //   then switch to q1. Using ε pop/push means the stack top does not constrain
+  //   which symbol we guess as the middle.
+  // Phase 2 (q1): pop matching symbols for the second half.
+  return new PDA(
+    ['q0', 'q1', 'qf'],
+    ['a', 'b'],
+    ['a', 'b', 'Z'],
+    'q0',
+    'Z',
+    ['qf'],
+    [
+      // Phase 1: push (ε pop = push on top regardless of current stack top)
+      { from: 'q0', input: 'a', pop: 'ε', push: 'a', to: 'q0' },
+      { from: 'q0', input: 'b', pop: 'ε', push: 'b', to: 'q0' },
+      // Middle-character guess: consume the symbol, leave stack unchanged
+      { from: 'q0', input: 'a', pop: 'ε', push: 'ε', to: 'q1' },
+      { from: 'q0', input: 'b', pop: 'ε', push: 'ε', to: 'q1' },
+      // Phase 2: pop matching symbols
+      { from: 'q1', input: 'a', pop: 'a', push: 'ε', to: 'q1' },
+      { from: 'q1', input: 'b', pop: 'b', push: 'ε', to: 'q1' },
+      // Accept when only the bottom marker Z remains
+      { from: 'q1', input: 'ε', pop: 'Z', push: 'Z', to: 'qf' }
+    ]
+  );
+}
+
+export function buildPDAFromSelection(type) {
+  switch (type) {
+    case 'ANBN':
+      return generateAnBnPDA();
+    case 'EVEN_PAL':
+      return generateEvenPalindromePDA();
+    case 'ODD_PAL':
+      return generateOddPalindromePDA();
+    default:
+      throw new Error('Invalid selection');
+  }
+}
+
+export function getPDASelectionPreset(type) {
+  switch (type) {
+    case 'ANBN': {
+      const pda = generateAnBnPDA();
+      return {
+        label: 'aⁿbⁿ',
+        sampleInput: 'aabb',
+        pda,
+        definition: createPDADefinition({
+          states: [...pda.states],
+          inputAlphabet: [...pda.inputAlphabet],
+          stackAlphabet: [...pda.stackAlphabet],
+          startState: pda.startState,
+          startStack: pda.startStackSymbol,
+          acceptStates: [...pda.acceptStates],
+          transitions: pda.transitions
+        })
+      };
+    }
+    case 'EVEN_PAL': {
+      const pda = generateEvenPalindromePDA();
+      return {
+        label: 'Even Palindrome (wwᴿ)',
+        sampleInput: 'abba',
+        pda,
+        definition: createPDADefinition({
+          states: [...pda.states],
+          inputAlphabet: [...pda.inputAlphabet],
+          stackAlphabet: [...pda.stackAlphabet],
+          startState: pda.startState,
+          startStack: pda.startStackSymbol,
+          acceptStates: [...pda.acceptStates],
+          transitions: pda.transitions
+        })
+      };
+    }
+    case 'ODD_PAL': {
+      const pda = generateOddPalindromePDA();
+      return {
+        label: 'Odd Palindrome',
+        sampleInput: 'aba',
+        pda,
+        definition: createPDADefinition({
+          states: [...pda.states],
+          inputAlphabet: [...pda.inputAlphabet],
+          stackAlphabet: [...pda.stackAlphabet],
+          startState: pda.startState,
+          startStack: pda.startStackSymbol,
+          acceptStates: [...pda.acceptStates],
+          transitions: pda.transitions
+        })
+      };
+    }
+    case 'CUSTOM': {
+      // CUSTOM returns empty definition so the UI can fill it freely
+      return {
+        label: 'Custom PDA',
+        sampleInput: '',
+        pda: null,
+        definition: {
+          states: 'q0, q1, q2',
+          inputAlphabet: 'a, b',
+          stackAlphabet: 'A, Z',
+          startState: 'q0',
+          startStack: 'Z',
+          acceptStates: 'q2',
+          transitions: 'q0, a, Z, AZ, q0\nq0, a, A, AA, q0\nq0, b, A, ε, q1\nq1, b, A, ε, q1\nq1, ε, Z, Z, q2'
+        }
+      };
+    }
+    default:
+      throw new Error('Invalid selection');
+  }
+}
+
+export function buildLanguageBasedPDA(languageSpec) {
+  const normalized = (languageSpec || '')
+    .replace(/\s+/g, '')
+    .replace(/\^/g, '')
+    .toLowerCase();
+
+  const match = normalized.match(/^([a-z])n([a-z])n$/);
+  if (!match) {
+    return {
+      error: "Unsupported language format. Try 'anbn' or 'a^n b^n'."
+    };
+  }
+
+  const [, firstSymbol, secondSymbol] = match;
+
+  if (firstSymbol === secondSymbol) {
+    return {
+      error: 'The two symbols in the language must be different.'
+    };
+  }
+
+  const pda = new PDA(
+    ['q0', 'q1', 'q2'],
+    [firstSymbol, secondSymbol],
+    ['A', 'Z'],
+    'q0',
+    'Z',
+    ['q2'],
+    [
+      { from: 'q0', input: firstSymbol, pop: 'Z', push: `A${'Z'}`, to: 'q0' },
+      { from: 'q0', input: firstSymbol, pop: 'A', push: 'AA', to: 'q0' },
+      { from: 'q0', input: secondSymbol, pop: 'A', push: 'ε', to: 'q1' },
+      { from: 'q1', input: secondSymbol, pop: 'A', push: 'ε', to: 'q1' },
+      { from: 'q1', input: 'ε', pop: 'Z', push: 'Z', to: 'q2' }
+    ]
+  );
+
+  return {
+    languageSpec: `${firstSymbol}^n ${secondSymbol}^n`,
+    states: 'q0, q1, q2',
+    inputAlphabet: `${firstSymbol}, ${secondSymbol}`,
+    stackAlphabet: 'A, Z',
+    startState: 'q0',
+    startStack: 'Z',
+    acceptStates: 'q2',
+    transitions: pda.transitions.map(({ from, input, pop, push, to }) => `${from}, ${input}, ${pop}, ${push}, ${to}`).join('\n'),
+    inputString: `${firstSymbol}${firstSymbol}${secondSymbol}${secondSymbol}`,
+    pda
+  };
+}
