@@ -18,6 +18,14 @@ const NfaSimulator = () => {
   const [engine, setEngine] = useState(null);
   const [simulationParams, setSimulationParams] = useState({ steps: [], currentStep: -1, accepted: false });
   const [activeNodes, setActiveNodes] = useState([]);
+  const [activeEdges, setActiveEdges] = useState([]);
+  const [rejectNodes, setRejectNodes] = useState([]);
+
+  const normalizeEpsilon = (symbol) => {
+    const normalized = String(symbol ?? '').trim();
+    if (!normalized || normalized.toLowerCase() === 'epsilon' || normalized === 'ε') return 'ε';
+    return normalized;
+  };
   
   const loadNFA = () => {
     try {
@@ -30,7 +38,8 @@ const NfaSimulator = () => {
       lines.forEach(line => {
         const parts = line.split(',').map(p => p.trim());
         if (parts.length === 3) {
-          const [from, symbol, to] = parts;
+          const [from, rawSymbol, to] = parts;
+          const symbol = normalizeEpsilon(rawSymbol);
           if (!transObj[from]) transObj[from] = {};
           if (!transObj[from][symbol]) transObj[from][symbol] = [];
           
@@ -48,10 +57,38 @@ const NfaSimulator = () => {
       }
       setEngine(nfa);
       return nfa;
-    } catch (e) {
+    } catch {
       alert("Error parsing NFA definition.");
       return null;
     }
+  };
+
+  const toSet = (value) => {
+    if (value instanceof Set) return value;
+    if (Array.isArray(value)) return new Set(value);
+    if (value === null || value === undefined) return new Set();
+    return new Set([value]);
+  };
+
+  const getActiveEdgesForStep = (nfa, step) => {
+    if (!nfa || !step || !step.symbol || step.step === 0) return [];
+
+    const fromStates = toSet(step.from);
+    const symbol = step.symbol;
+    const toStates = toSet(step.to);
+    const highlighted = [];
+
+    for (const from of fromStates) {
+      const rawTargets = nfa.transition?.[from]?.[symbol] || [];
+      const targets = Array.isArray(rawTargets) ? rawTargets : [rawTargets];
+      for (const to of targets) {
+        if (toStates.size === 0 || toStates.has(to)) {
+          highlighted.push({ from, to, symbol });
+        }
+      }
+    }
+
+    return highlighted;
   };
 
   const handleRunAll = () => {
@@ -61,6 +98,8 @@ const NfaSimulator = () => {
     const result = nfa.simulateStepByStep(definition.inputString.trim());
     setSimulationParams({ steps: result.steps, currentStep: result.steps.length - 1, accepted: result.accepted });
     setActiveNodes(Array.from(result.finalStates || new Set()));
+    setActiveEdges([]);
+    setRejectNodes([]);
   };
 
   const handleStep = () => {
@@ -74,19 +113,26 @@ const NfaSimulator = () => {
       const result = nfa.simulateStepByStep(definition.inputString.trim());
       setSimulationParams({ steps: result.steps, currentStep: 0, accepted: result.accepted });
       setActiveNodes(Array.from(result.steps[0].to)); // To states of initial closure
+      setActiveEdges([]);
+      setRejectNodes([]);
       return;
     }
 
     if (simulationParams.currentStep < simulationParams.steps.length - 1) {
       const nextIdx = simulationParams.currentStep + 1;
       setSimulationParams(prev => ({ ...prev, currentStep: nextIdx }));
-      setActiveNodes(Array.from(simulationParams.steps[nextIdx].to));
+      const nextStep = simulationParams.steps[nextIdx];
+      setActiveNodes(Array.from(nextStep.to || new Set()));
+      setActiveEdges(getActiveEdgesForStep(nfa, nextStep));
+      setRejectNodes(nextStep.status === 'DEAD PATH' ? Array.from(nextStep.from || new Set()) : []);
     }
   };
 
   const handleReset = () => {
     setSimulationParams({ steps: [], currentStep: -1, accepted: false });
     setActiveNodes([]);
+    setActiveEdges([]);
+    setRejectNodes([]);
   };
 
   useEffect(() => {
@@ -146,7 +192,7 @@ const NfaSimulator = () => {
           <div className="panel visualization-panel">
             <h3 className="panel-header">Graph Output</h3>
             <div className="graph-box">
-              <GraphVisualizer automaton={engine} activeNode={activeNodes} />
+              <GraphVisualizer automaton={engine} activeNode={activeNodes} activeEdges={activeEdges} rejectNodes={rejectNodes} />
 
               <div className="controls-overlay">
                 <div className="overlay-input-group">
@@ -174,26 +220,30 @@ const NfaSimulator = () => {
           </div>
 
           <div className="panel log-panel">
-            <h3 className="panel-header">Execution Trace</h3>
-            {simulationParams.steps.length > 0 && simulationParams.currentStep === simulationParams.steps.length - 1 && (
-              <div style={{
-                padding: '12px', marginBottom: '16px', borderRadius: '6px', textAlign: 'center', fontSize: '18px', fontWeight: 'bold',
-                backgroundColor: simulationParams.accepted ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                color: simulationParams.accepted ? 'var(--accent-secondary)' : 'var(--error)',
-                border: `1px solid ${simulationParams.accepted ? 'var(--accent-secondary)' : 'var(--error)'}`
-              }} className="fade-in">
-                {simulationParams.accepted ? '✅ String Accepted' : '❌ String Rejected'}
-              </div>
-            )}
+            <div className="trace-header-row">
+              <h3 className="panel-header">Execution Trace</h3>
+              {simulationParams.steps.length > 0 && simulationParams.currentStep === simulationParams.steps.length - 1 && (
+                <div className={`trace-result-pill ${simulationParams.accepted ? 'accepted' : 'rejected'} fade-in`}>
+                  {simulationParams.accepted ? '✓ Accepted' : '✕ Rejected'}
+                </div>
+              )}
+            </div>
             <div className="trace-box trace-section">
               {simulationParams.steps.length === 0 ? (
                 <div className="trace-empty">▶ Run or Step to start simulation</div>
               ) : (
                 <div className="trace-content">
+                  {simulationParams.currentStep >= 0 && simulationParams.currentStep < simulationParams.steps.length - 1 && (
+                    <div className="trace-info-banner">
+                      Provisional: acceptance is decided only after full input is consumed.
+                    </div>
+                  )}
                   {simulationParams.steps.map((step, idx) => (
                     <div key={idx} className={`trace-line ${idx === simulationParams.currentStep ? 'current' : ''} ${step.status === 'ACCEPT' ? 'success' : step.status.includes('REJECT') ? 'error' : ''}`}>
                       <span className="step-num">Step {step.step}:</span>
-                      {step.symbol ? (
+                      {step.step === 0 && step.status === 'START' ? (
+                        <span> <strong>{step.symbol}</strong></span>
+                      ) : step.symbol ? (
                         <span> <code>{formatSet(step.from)}</code> --(<strong>{step.symbol}</strong>)--&gt; <code>{formatSet(step.to)}</code></span>
                       ) : (
                         <span> <strong>{step.status}</strong> on Set <code>{formatSet(step.from)}</code></span>

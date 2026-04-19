@@ -18,6 +18,7 @@ const DfaSimulator = () => {
   const [engine, setEngine] = useState(null);
   const [simulationParams, setSimulationParams] = useState({ steps: [], currentStep: -1, accepted: false });
   const [activeNode, setActiveNode] = useState(null);
+  const [activeEdge, setActiveEdge] = useState(null);
   
   // Parse and configure DFA
   const loadDFA = () => {
@@ -57,9 +58,11 @@ const DfaSimulator = () => {
 
     const result = dfa.simulateStepByStep(definition.inputString.trim());
     setSimulationParams({ steps: result.steps, currentStep: result.steps.length - 1, accepted: result.accepted });
+    const lastTransitionStep = [...result.steps].reverse().find(step => step.symbol);
     // finalState is only set on the acceptance path; fall back to the last known state
     const lastStep = result.steps[result.steps.length - 1];
     setActiveNode(result.finalState ?? lastStep?.from ?? null);
+    setActiveEdge(lastTransitionStep ? { from: lastTransitionStep.from, to: lastTransitionStep.to, symbol: lastTransitionStep.symbol } : null);
   };
 
   const handleStep = () => {
@@ -74,6 +77,7 @@ const DfaSimulator = () => {
       const result = dfa.simulateStepByStep(definition.inputString.trim());
       setSimulationParams({ steps: result.steps, currentStep: 0, accepted: result.accepted });
       setActiveNode(result.steps[0].from);
+      setActiveEdge(result.steps[0].symbol ? { from: result.steps[0].from, to: result.steps[0].to, symbol: result.steps[0].symbol } : null);
       return;
     }
 
@@ -81,13 +85,16 @@ const DfaSimulator = () => {
     if (simulationParams.currentStep < simulationParams.steps.length - 1) {
       const nextIdx = simulationParams.currentStep + 1;
       setSimulationParams(prev => ({ ...prev, currentStep: nextIdx }));
-      setActiveNode(simulationParams.steps[nextIdx].from || simulationParams.steps[nextIdx].to);
+      const nextStep = simulationParams.steps[nextIdx];
+      setActiveNode(nextStep.from || nextStep.to);
+      setActiveEdge(nextStep.symbol ? { from: nextStep.from, to: nextStep.to, symbol: nextStep.symbol } : null);
     }
   };
 
   const handleReset = () => {
     setSimulationParams({ steps: [], currentStep: -1, accepted: false });
     setActiveNode(null);
+    setActiveEdge(null);
   };
 
   useEffect(() => {
@@ -143,7 +150,7 @@ const DfaSimulator = () => {
           <div className="panel visualization-panel">
             <h3 className="panel-header">Graph Output</h3>
             <div className="graph-box">
-              <GraphVisualizer automaton={engine} activeNode={activeNode} />
+              <GraphVisualizer automaton={engine} activeNode={activeNode} activeEdge={activeEdge} />
 
               <div className="controls-overlay">
                 <div className="overlay-input-group">

@@ -16,7 +16,8 @@ import '@xyflow/react/dist/style.css';
 
 // ── Custom State Node ──────────────────────────────────────────────────────
 const StateNode = ({ data }) => {
-  const { label, active, isAccept, isStart, isReject } = data;
+  const { label, active, isAccept, isStart, isReject, activeCount = 0 } = data;
+  const isMultiActive = active && activeCount > 1;
 
   let border, bg, shadow;
   if (active && isReject) {
@@ -30,7 +31,7 @@ const StateNode = ({ data }) => {
   } else if (active) {
     bg     = '#6366F1';
     border = '2px solid #818CF8';
-    shadow = '0 0 16px rgba(99,102,241,0.6)';
+    shadow = isMultiActive ? '0 0 22px rgba(56,189,248,0.85)' : '0 0 16px rgba(99,102,241,0.6)';
   } else if (isAccept) {
     bg     = '#1F2937';
     border = '4px double #22C55E';
@@ -47,7 +48,8 @@ const StateNode = ({ data }) => {
       background: bg, border, boxShadow: shadow,
       display: 'flex', justifyContent: 'center', alignItems: 'center',
       color: '#F9FAFB', fontFamily: 'Inter', fontSize: 14,
-      position: 'relative', transition: 'all 0.25s ease'
+      position: 'relative', transition: 'all 0.25s ease',
+      animation: isMultiActive ? 'multiActivePulse 1.2s ease-in-out infinite' : 'none'
     }}>
       <Handle type="target" position={Position.Top}    style={{ visibility: 'hidden' }} />
       {label}
@@ -72,7 +74,7 @@ const PdaEdge = ({
   sourcePosition, targetPosition,
   data, markerEnd, style
 }) => {
-  const { rawLabel = '', isActive = false, curvature = 0 } = data || {};
+  const { rawLabel = '', isActive = false, curvature = 0, isEpsilon = false, leadsToAccept = false } = data || {};
   const isSelfLoop = source === target;
 
   let edgePath, labelX, labelY;
@@ -84,30 +86,46 @@ const PdaEdge = ({
     const centerX = targetX;
     const centerY = targetY + nodeRadius;
 
-    const startAngle = (225 * Math.PI) / 180; // upper-left boundary point
-    const endAngle = (315 * Math.PI) / 180;   // upper-right boundary point
+    const startAngle = (235 * Math.PI) / 180; // upper-left boundary point
+    const endAngle = (305 * Math.PI) / 180;   // upper-right boundary point
 
     const sx = centerX + nodeRadius * Math.cos(startAngle);
     const sy = centerY + nodeRadius * Math.sin(startAngle);
     const ex = centerX + nodeRadius * Math.cos(endAngle);
     const ey = centerY + nodeRadius * Math.sin(endAngle);
 
-    const c1x = sx - 10;
-    const c1y = sy - 45;
-    const c2x = ex + 10;
-    const c2y = ey - 45;
+    const c1x = sx - 8;
+    const c1y = sy - 34;
+    const c2x = ex + 8;
+    const c2y = ey - 34;
 
     edgePath = `M ${sx},${sy} C ${c1x},${c1y} ${c2x},${c2y} ${ex},${ey}`;
     labelX = centerX;
-    labelY = Math.min(c1y, c2y) - 6;
+    labelY = Math.min(c1y, c2y) - 4;
   } else {
-    const mappedCurvature = curvature > 0 ? Math.min(0.85, 0.25 + curvature / 100) : 0.25;
+    const mappedCurvature = curvature === 0
+      ? 0.25
+      : Math.sign(curvature) * Math.min(0.88, 0.3 + Math.abs(curvature) / 80);
     [edgePath, labelX, labelY] = getBezierPath({
       sourceX, sourceY, sourcePosition,
       targetX, targetY, targetPosition,
       curvature: mappedCurvature
     });
+
+    if (curvature !== 0) {
+      labelY += Math.sign(curvature) * 16;
+    }
   }
+
+  const epsilonTokens = String(rawLabel)
+    .split(/(\n|\s*,\s*)/)
+    .map(part => {
+      const trimmed = part.trim();
+      return {
+        text: part,
+        isEpsilonToken: trimmed === 'ε'
+      };
+    });
 
   return (
     <>
@@ -117,21 +135,32 @@ const PdaEdge = ({
           style={{
             position: 'absolute',
             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-            background:  isActive ? '#0C4A6E' : '#1F2937',
-            color:       isActive ? '#A5F3FC' : '#E5E7EB',
-            border:      `1px solid ${isActive ? '#67E8F9' : '#374151'}`,
+            background:  isEpsilon ? '#111827' : (isActive && leadsToAccept ? '#14532D' : (isActive ? '#0C4A6E' : '#1F2937')),
+            color:       isActive && leadsToAccept ? '#DCFCE7' : (isActive ? '#A5F3FC' : '#E5E7EB'),
+            border:      `1px solid ${isActive && leadsToAccept ? '#22C55E' : (isEpsilon ? '#34D399' : (isActive ? '#67E8F9' : '#374151'))}`,
             borderRadius: 4,
             padding:     '4px 8px',
             fontSize:    11,
             fontFamily:  'monospace',
-            whiteSpace:  'pre',
+            whiteSpace:  'pre-wrap',
+            maxWidth:    180,
+            boxShadow:   isActive && leadsToAccept
+              ? '0 0 0 1px rgba(34,197,94,0.4), 0 0 14px rgba(34,197,94,0.28)'
+              : (isEpsilon ? '0 0 0 1px rgba(52,211,153,0.25)' : 'none'),
             textAlign:   'center',
             lineHeight:  1.5,
             pointerEvents: 'none'
           }}
           className="nodrag nopan"
         >
-          {rawLabel}
+          {epsilonTokens.map((token, idx) => (
+            <span
+              key={`${id}-token-${idx}`}
+              style={token.isEpsilonToken ? { color: '#86EFAC', fontStyle: 'italic', fontWeight: 700 } : undefined}
+            >
+              {token.text}
+            </span>
+          ))}
         </div>
       </EdgeLabelRenderer>
     </>
@@ -152,9 +181,38 @@ const getDeterministicJitter = (state, axis = 'x') => {
 };
 
 // ── GraphVisualizer ────────────────────────────────────────────────────────
-const GraphVisualizer = ({ automaton, activeNode, activeEdge, rejectNodes }) => {
+const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejectNodes }) => {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
+  const activeNodeCount = Array.isArray(activeNode) ? activeNode.length : (activeNode ? 1 : 0);
+
+  const isNfaMode = useMemo(() => {
+    if (!automaton || Array.isArray(automaton.edges) || !automaton.transition) return false;
+
+    for (const fromState in automaton.transition) {
+      for (const symbol in automaton.transition[fromState]) {
+        const targets = automaton.transition[fromState][symbol];
+        if (symbol === 'ε') return true;
+        if (Array.isArray(targets) && targets.length > 1) return true;
+      }
+    }
+
+    return false;
+  }, [automaton]);
+
+  const isEdgeActive = useCallback((from, to, labels = []) => {
+    if (Array.isArray(activeEdges) && activeEdges.length > 0) {
+      return activeEdges.some(edge => (
+        edge.from === from
+        && edge.to === to
+        && (!edge.symbol || labels.includes(edge.symbol))
+      ));
+    }
+
+    if (!activeEdge) return false;
+    return activeEdge.from === from && activeEdge.to === to && (!activeEdge.symbol || labels.includes(activeEdge.symbol));
+  }, [activeEdge, activeEdges]);
+
   const stableAutomaton = useMemo(() => {
     if (!automaton) return '';
 
@@ -172,7 +230,7 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, rejectNodes }) => 
         pdaEdges
       });
     } catch {
-      return String(Date.now());
+      return '';
     }
   }, [automaton]);
 
@@ -243,7 +301,8 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, rejectNodes }) => 
             isStart:  state === startState,
             isAccept: acceptStates.has(state),
             active:   isNodeActive,
-            isReject: isNodeReject
+            isReject: isNodeReject,
+            activeCount: activeNodeCount
           }
         };
       });
@@ -256,15 +315,21 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, rejectNodes }) => 
       // PDA mode — edges array with pre-formatted multiline labels
       automaton.edges.forEach(({ from, to, label }) => {
         const key = `${from}->${to}`;
-        const isAct = !!(activeEdge && activeEdge.from === from && activeEdge.to === to);
+        const labels = [label];
+        const isAct = isEdgeActive(from, to, labels);
+        const leadsToAccept = acceptStates.has(to);
         newEdges.push({
           id:    key,
           source: from,
           target: to,
           type:  'pdaEdge',
-          data:  { rawLabel: label, isActive: isAct },
-          markerEnd: { type: MarkerType.ArrowClosed, color: isAct ? '#67E8F9' : '#9CA3AF' },
-          style: { stroke: isAct ? '#67E8F9' : '#9CA3AF', strokeWidth: isAct ? 3 : 2 },
+          data:  { rawLabel: label, isActive: isAct, labels, isEpsilon: label === 'ε', leadsToAccept },
+          markerEnd: { type: MarkerType.ArrowClosed, color: isAct ? (leadsToAccept ? '#22C55E' : '#67E8F9') : '#9CA3AF' },
+          style: {
+            stroke: isAct ? (leadsToAccept ? '#22C55E' : '#67E8F9') : '#9CA3AF',
+            strokeWidth: isAct ? (leadsToAccept ? 4 : 3) : 2,
+            filter: isAct && leadsToAccept ? 'drop-shadow(0 0 6px rgba(34,197,94,0.5))' : 'none'
+          },
           animated: isAct
         });
       });
@@ -291,7 +356,8 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, rejectNodes }) => 
         }
       }
       for (const [key, { from, to, labels }] of edgeMap) {
-        const isAct = !!(activeEdge && activeEdge.from === from && activeEdge.to === to);
+        const isAct = isEdgeActive(from, to, labels);
+        const leadsToAccept = acceptStates.has(to);
 
         if (from === to) {
           newEdges.push({
@@ -299,25 +365,49 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, rejectNodes }) => 
             source: from,
             target: to,
             type: 'pdaEdge',
-            data: { rawLabel: labels.join(', '), isActive: isAct, curvature: 0 },
-            markerEnd: { type: MarkerType.ArrowClosed, color: isAct ? '#67E8F9' : '#9CA3AF' },
-            style: { stroke: isAct ? '#67E8F9' : '#9CA3AF', strokeWidth: isAct ? 3 : 2 },
+            data: {
+              rawLabel: labels.join(',\n'),
+              labels,
+              isActive: isAct,
+              curvature: 0,
+              isEpsilon: labels.includes('ε'),
+              leadsToAccept
+            },
+            markerEnd: { type: MarkerType.ArrowClosed, color: isAct ? (leadsToAccept ? '#22C55E' : '#67E8F9') : '#9CA3AF' },
+            style: {
+              stroke: isAct ? (leadsToAccept ? '#22C55E' : '#67E8F9') : '#9CA3AF',
+              strokeWidth: isAct ? (leadsToAccept ? 4 : 3) : 2,
+              filter: isAct && leadsToAccept ? 'drop-shadow(0 0 6px rgba(34,197,94,0.5))' : 'none'
+            },
             animated: isAct
           });
           continue;
         }
 
         const isReverse = edgeMap.has(`${to}->${from}`);
-        const offset = isReverse ? 30 : 0;
+        const offset = isReverse ? (from < to ? 52 : -52) : 0;
 
         newEdges.push({
           id: key,
           source: from,
           target: to,
           type: 'pdaEdge',
-          data: { rawLabel: labels.join(', '), isActive: isAct, curvature: offset },
-          markerEnd: { type: MarkerType.ArrowClosed, color: isAct ? '#67E8F9' : '#9CA3AF' },
-          style: { stroke: isAct ? '#67E8F9' : '#9CA3AF', strokeWidth: isAct ? 3 : 2 },
+          data: {
+            rawLabel: labels.join(',\n'),
+            labels,
+            isActive: isAct,
+            curvature: offset,
+            isEpsilon: labels.includes('ε'),
+            leadsToAccept
+          },
+          markerEnd: { type: MarkerType.ArrowClosed, color: isAct ? (leadsToAccept ? '#22C55E' : '#67E8F9') : '#9CA3AF' },
+          style: {
+            stroke: isAct ? (leadsToAccept ? '#22C55E' : '#67E8F9') : '#9CA3AF',
+            strokeWidth: isAct ? (leadsToAccept ? 4 : 3) : 2,
+            filter: isAct
+              ? (leadsToAccept ? 'drop-shadow(0 0 6px rgba(34,197,94,0.5))' : 'drop-shadow(0 0 6px rgba(103,232,249,0.45))')
+              : 'none'
+          },
           labelStyle: { fill: '#F9FAFB', fontSize: 14, fontFamily: 'Inter' },
           labelBgStyle: {
             fill: '#1F2937',
@@ -329,35 +419,48 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, rejectNodes }) => 
       }
     }
 
-    // Temporary debug output for edge diagnostics.
-    console.log(newEdges);
-
     setEdges(newEdges);
-  }, [stableAutomaton, activeEdge]); // include activeEdge so PDA edges initialise correctly
+  }, [automaton, stableAutomaton, activeNode, activeEdge, activeEdges, activeNodeCount, isEdgeActive, rejectNodes]); // include edge/node activity so highlights initialise correctly
 
   // Update node active / reject state without rebuilding positions
   useEffect(() => {
     setNodes(nds => nds.map(n => {
       const isNodeActive = Array.isArray(activeNode)  ? activeNode.includes(n.id)  : n.id === activeNode;
       const isNodeReject = Array.isArray(rejectNodes) ? rejectNodes.includes(n.id) : n.id === rejectNodes;
-      return { ...n, data: { ...n.data, active: isNodeActive, isReject: isNodeReject } };
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          active: isNodeActive,
+          isReject: isNodeReject,
+          activeCount: activeNodeCount
+        }
+      };
     }));
-  }, [activeNode, rejectNodes]);
+  }, [activeNode, rejectNodes, activeNodeCount]);
 
   // Update edge highlight for PDA mode (cheap — no positional rebuild)
   useEffect(() => {
     setEdges(eds => eds.map(e => {
       if (e.type !== 'pdaEdge') return e;
-      const isAct = !!(activeEdge && activeEdge.from === e.source && activeEdge.to === e.target);
+      const labels = Array.isArray(e.data?.labels) ? e.data.labels : [];
+      const isAct = isEdgeActive(e.source, e.target, labels);
+      const leadsToAccept = !!e.data?.leadsToAccept;
       return {
         ...e,
         data:      { ...e.data, isActive: isAct },
-        markerEnd: { type: MarkerType.ArrowClosed, color: isAct ? '#67E8F9' : '#9CA3AF' },
-        style:     { stroke: isAct ? '#67E8F9' : '#9CA3AF', strokeWidth: isAct ? 3 : 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: isAct ? (leadsToAccept ? '#22C55E' : '#67E8F9') : '#9CA3AF' },
+        style: {
+          stroke: isAct ? (leadsToAccept ? '#22C55E' : '#67E8F9') : '#9CA3AF',
+          strokeWidth: isAct ? (leadsToAccept ? 4 : 3) : 2,
+          filter: isAct
+            ? (leadsToAccept ? 'drop-shadow(0 0 6px rgba(34,197,94,0.5))' : 'drop-shadow(0 0 6px rgba(103,232,249,0.45))')
+            : 'none'
+        },
         animated:  isAct
       };
     }));
-  }, [activeEdge]);
+  }, [activeEdge, activeEdges, isEdgeActive]);
 
   const onNodesChange = useCallback(changes => setNodes(nds => applyNodeChanges(changes, nds)), []);
   const onEdgesChange = useCallback(changes => setEdges(eds => applyEdgeChanges(changes, eds)), []);
@@ -365,6 +468,11 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, rejectNodes }) => 
   return (
     <div className="graph-container" style={{ height: '100%', borderRadius: 0, border: 'none' }}>
       <style>{`
+        @keyframes multiActivePulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.06); }
+          100% { transform: scale(1); }
+        }
         .react-flow__controls {
           background: #1F2937;
           border: 1px solid #374151;
@@ -384,6 +492,26 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, rejectNodes }) => 
           fill: #D1D5DB;
         }
       `}</style>
+      {isNfaMode && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 10,
+            right: 12,
+            zIndex: 20,
+            background: 'rgba(8,47,73,0.9)',
+            color: '#7DD3FC',
+            border: '1px solid rgba(125,211,252,0.45)',
+            borderRadius: 999,
+            fontSize: 11,
+            letterSpacing: 0.6,
+            fontWeight: 700,
+            padding: '4px 10px'
+          }}
+        >
+          NFA MODE
+        </div>
+      )}
       <ReactFlow
         nodes={nodes}
         edges={edges}

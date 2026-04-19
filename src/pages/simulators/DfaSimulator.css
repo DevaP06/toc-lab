@@ -191,6 +191,22 @@ textarea {
   word-break: break-word;
 }
 
+.trace-active-edge-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(12, 74, 110, 0.35);
+  border: 1px solid rgba(103, 232, 249, 0.45);
+  color: #A5F3FC;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .trace-line.current {
   background-color: rgba(99, 102, 241, 0.2);
   border-left: 3px solid var(--accent-primary);
