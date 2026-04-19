@@ -2,10 +2,30 @@
  * Core engine for Nondeterministic Finite Automata (NFA)
  */
 export class NFA {
-  constructor(states, alphabet, transition, startState, acceptStates) {
+  constructor(states, alphabet, thirdArg, fourthArg, fifthArg) {
     this.states = new Set(states);
     this.alphabet = new Set(alphabet);
-    this.transition = this.normalizeTransitionTable(transition || {});
+
+    let transitions;
+    let startState;
+    let acceptStates;
+
+    // Supports both:
+    // 1) (states, alphabet, transitions, startState, acceptStates)
+    // 2) (states, alphabet, startState, acceptStates, transitions)
+    if (typeof thirdArg === 'string') {
+      startState = thirdArg;
+      acceptStates = fourthArg;
+      transitions = fifthArg;
+    } else {
+      transitions = thirdArg;
+      startState = fourthArg;
+      acceptStates = fifthArg;
+    }
+
+    this.transitions = this.normalizeTransitionTable(transitions || {});
+    // Backward-compat alias for older code paths.
+    this.transition = this.transitions;
     this.startState = startState;
     this.acceptStates = new Set(acceptStates);
   }
@@ -59,19 +79,19 @@ export class NFA {
       if (!this.states.has(state)) return { isValid: false, error: `Accept state '${state}' is not valid.` };
     }
 
-    for (const fromState in this.transition) {
+    for (const fromState in this.transitions) {
       if (!this.states.has(fromState)) {
         return { isValid: false, error: `Transition state '${fromState}' is unknown.` };
       }
 
-      for (const symbol in this.transition[fromState]) {
+      for (const symbol in this.transitions[fromState]) {
         if (symbol !== 'ε' && !this.alphabet.has(symbol)) {
           return { isValid: false, error: `Transition symbol '${symbol}' is not in the alphabet.` };
         }
 
-        const targets = Array.isArray(this.transition[fromState][symbol])
-          ? this.transition[fromState][symbol]
-          : [this.transition[fromState][symbol]];
+        const targets = Array.isArray(this.transitions[fromState][symbol])
+          ? this.transitions[fromState][symbol]
+          : [this.transitions[fromState][symbol]];
 
         for (const target of targets) {
           if (!this.states.has(target)) {
@@ -86,11 +106,13 @@ export class NFA {
 
   epsilonClosure(statesInput) {
     const stack = Array.isArray(statesInput) ? [...statesInput] : Array.from(statesInput);
+    console.log('Computing ε-closure for:', Array.from(stack));
     const closure = new Set(stack);
     
     while(stack.length > 0) {
       const current = stack.pop();
-      const epsilonTargets = this.transition[current]?.['ε'] || [];
+      console.log(' Visiting:', current);
+      const epsilonTargets = this.transitions[current]?.['ε'] || [];
       
       const targetsArray = Array.isArray(epsilonTargets) ? epsilonTargets : [epsilonTargets];
       
@@ -132,7 +154,7 @@ export class NFA {
 
         const nextStates = new Set();
         for (const state of currentStates) {
-           let targets = this.transition[state]?.[symbol] || [];
+           let targets = this.transitions[state]?.[symbol] || [];
            if (!Array.isArray(targets)) targets = [targets];
            for (const t of targets) nextStates.add(t);
         }

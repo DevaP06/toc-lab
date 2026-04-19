@@ -1,5 +1,5 @@
-import { DFA } from './dfa';
-import { NFA } from './nfa';
+import { DFA } from './dfa.js';
+import { NFA } from './nfa.js';
 
 /**
  * Converts an NFA to a DFA using the Subset Construction algorithm.
@@ -7,7 +7,13 @@ import { NFA } from './nfa';
  * @returns {Object} - Contains the resulting DFA definition, the state mapping, and construction steps
  */
 export function convertNfaToDfa(nfa) {
-  const alphabet = Array.from(nfa.alphabet).filter(s => s !== 'ε' && s !== 'epsilon' && s !== null && s !== '');
+  const isEpsilon = (symbol) => {
+    const normalized = String(symbol || '').trim().toLowerCase();
+    return normalized === 'ε' || normalized === 'epsilon' || normalized === 'eps' || normalized === 'λ';
+  };
+  const alphabet = Array.from(nfa.alphabet).filter(s => s !== null && s !== '' && !isEpsilon(s));
+  const transitions = nfa.transitions || nfa.transition || {};
+  const isAccept = (set) => Array.from(set).some(s => nfa.acceptStates.has(s));
   
   // Helper to format a set of states as a string name for the DFA
   const formatSetName = (set) => {
@@ -30,7 +36,7 @@ export function convertNfaToDfa(nfa) {
 
   // Initialize
   dfaStates.add(startDfaStateName);
-  const startContainsAccept = Array.from(startClosure).some(s => nfa.acceptStates.has(s));
+  const startContainsAccept = isAccept(startClosure);
   if (startContainsAccept) dfaAcceptStates.add(startDfaStateName);
 
   constructionSteps.push({
@@ -42,20 +48,42 @@ export function convertNfaToDfa(nfa) {
   while (queue.length > 0) {
     const currentSet = queue.shift();
     const currentName = formatSetName(currentSet);
+    console.log('Processing DFA state:', currentName);
+    constructionSteps.push({
+      message: `Processing DFA state: ${currentName}`,
+      processingState: currentName
+    });
     
     if (!dfaTransitions[currentName]) dfaTransitions[currentName] = {};
 
     for (const symbol of alphabet) {
+      console.log(' Symbol:', symbol);
+      console.log('  Current Set:', Array.from(currentSet));
       // 1. Find all reachable NFA states on symbol
       const reachable = new Set();
       for (const nfaState of currentSet) {
-        let targets = nfa.transition[nfaState]?.[symbol] || [];
+        let targets = transitions[nfaState]?.[symbol] || [];
         if (!Array.isArray(targets)) targets = [targets];
         for (const t of targets) reachable.add(t);
       }
+      console.log('  Reachable:', Array.from(reachable));
 
       // 2. Compute epsilon closure of the reachable states
       const closureSet = nfa.epsilonClosure(reachable);
+      console.log('  Closure:', Array.from(closureSet));
+
+      if (closureSet.size === 0) {
+        console.warn(`WARNING Empty set reached from ${currentName} on '${symbol}'`);
+        dfaTransitions[currentName][symbol] = 'DEAD';
+        dfaStates.add('DEAD');
+        processedNames.add('DEAD');
+        constructionSteps.push({
+          message: `From ${currentName} on '${symbol}': no reachable states, transition -> DEAD`,
+          transitionAdded: `${currentName} --${symbol}--> DEAD`
+        });
+        continue;
+      }
+
       const targetName = formatSetName(closureSet);
 
       dfaTransitions[currentName][symbol] = targetName;
@@ -71,14 +99,33 @@ export function convertNfaToDfa(nfa) {
         queue.push(closureSet);
         dfaStates.add(targetName);
         
-        const isAccept = Array.from(closureSet).some(s => nfa.acceptStates.has(s));
-        if (isAccept) dfaAcceptStates.add(targetName);
+        const accept = isAccept(closureSet);
+        if (accept) dfaAcceptStates.add(targetName);
         
         constructionSteps.push({
-          message: `   Added new state: ${targetName} ${isAccept ? '(Accepting)' : ''}`,
+          message: `   Added new state: ${targetName} ${accept ? '(Accepting)' : ''}`,
           stateCreated: targetName,
-          isAccept
+          isAccept: accept
         });
+      }
+    }
+  }
+
+  if (dfaStates.has('DEAD')) {
+    console.log('Adding DEAD state transitions...');
+    dfaTransitions.DEAD = dfaTransitions.DEAD || {};
+    for (const symbol of alphabet) {
+      dfaTransitions.DEAD[symbol] = 'DEAD';
+    }
+  }
+
+  console.log('DFA States:', Array.from(dfaStates));
+  console.log('DFA Transitions:', dfaTransitions);
+
+  for (const state of dfaStates) {
+    for (const symbol of alphabet) {
+      if (!dfaTransitions[state]?.[symbol]) {
+        console.error(`Missing transition: ${state} on '${symbol}'`);
       }
     }
   }

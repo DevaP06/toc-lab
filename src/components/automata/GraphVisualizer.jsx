@@ -16,11 +16,15 @@ import '@xyflow/react/dist/style.css';
 
 // ── Custom State Node ──────────────────────────────────────────────────────
 const StateNode = ({ data }) => {
-  const { label, active, isAccept, isStart, isReject, activeCount = 0 } = data;
+  const { label, active, isAccept, isStart, isReject, isDead = false, activeCount = 0 } = data;
   const isMultiActive = active && activeCount > 1;
 
   let border, bg, shadow;
-  if (active && isReject) {
+  if (isDead) {
+    bg = '#111827';
+    border = '2px dashed #6B7280';
+    shadow = active ? '0 0 12px rgba(107,114,128,0.45)' : 'none';
+  } else if (active && isReject) {
     bg     = '#7F1D1D';
     border = '3px solid #EF4444';
     shadow = '0 0 16px rgba(239,68,68,0.55)';
@@ -181,7 +185,7 @@ const getDeterministicJitter = (state, axis = 'x') => {
 };
 
 // ── GraphVisualizer ────────────────────────────────────────────────────────
-const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejectNodes }) => {
+const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejectNodes, fadeInactiveEdges = false }) => {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const activeNodeCount = Array.isArray(activeNode) ? activeNode.length : (activeNode ? 1 : 0);
@@ -293,6 +297,7 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejec
     const SPACING_X = 150;
     const SPACING_Y = 150;
     const COLS = Math.max(3, Math.ceil(Math.sqrt(states.size)));
+    const hasFocusedEdges = Array.isArray(activeEdges) && activeEdges.length > 0;
 
     // Rebuild nodes (positions preserved via posMap)
     setNodes(nds => {
@@ -302,10 +307,16 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejec
       return Array.from(states).map((state, i) => {
         const col = i % COLS;
         const row = Math.floor(i / COLS);
-        const pos = posMap[state] ?? {
-          x: col * SPACING_X + 50 + getDeterministicJitter(state, 'x'),
-          y: row * SPACING_Y + 50 + getDeterministicJitter(state, 'y')
-        };
+        const defaultPos = state === 'DEAD'
+          ? {
+              x: (COLS - 1) * SPACING_X + 120,
+              y: Math.ceil(states.size / COLS) * SPACING_Y + 90
+            }
+          : {
+              x: col * SPACING_X + 50 + getDeterministicJitter(state, 'x'),
+              y: row * SPACING_Y + 50 + getDeterministicJitter(state, 'y')
+            };
+        const pos = posMap[state] ?? defaultPos;
         const isNodeActive = Array.isArray(activeNode)  ? activeNode.includes(state)  : state === activeNode;
         const isNodeReject = Array.isArray(rejectNodes) ? rejectNodes.includes(state) : state === rejectNodes;
         return {
@@ -316,6 +327,7 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejec
             isAccept: acceptStates.has(state),
             active:   isNodeActive,
             isReject: isNodeReject,
+            isDead: state === 'DEAD',
             activeCount: activeNodeCount
           }
         };
@@ -332,6 +344,7 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejec
         const labels = [label];
         const isAct = isEdgeActive(from, to, labels);
         const leadsToAccept = acceptStates.has(to);
+        const edgeOpacity = fadeInactiveEdges && hasFocusedEdges && !isAct ? 0.2 : 1;
         newEdges.push({
           id:    key,
           source: from,
@@ -342,7 +355,8 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejec
           style: {
             stroke: isAct ? (leadsToAccept ? '#22C55E' : '#67E8F9') : '#9CA3AF',
             strokeWidth: isAct ? (leadsToAccept ? 4 : 3) : 2,
-            filter: isAct && leadsToAccept ? 'drop-shadow(0 0 6px rgba(34,197,94,0.5))' : 'none'
+            filter: isAct && leadsToAccept ? 'drop-shadow(0 0 6px rgba(34,197,94,0.5))' : 'none',
+            opacity: edgeOpacity
           },
           animated: isAct
         });
@@ -372,6 +386,7 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejec
       for (const [key, { from, to, labels }] of edgeMap) {
         const isAct = isEdgeActive(from, to, labels);
         const leadsToAccept = acceptStates.has(to);
+        const edgeOpacity = fadeInactiveEdges && hasFocusedEdges && !isAct ? 0.2 : 1;
 
         if (from === to) {
           newEdges.push({
@@ -391,7 +406,8 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejec
             style: {
               stroke: isAct ? (leadsToAccept ? '#22C55E' : '#67E8F9') : '#9CA3AF',
               strokeWidth: isAct ? (leadsToAccept ? 4 : 3) : 2,
-              filter: isAct && leadsToAccept ? 'drop-shadow(0 0 6px rgba(34,197,94,0.5))' : 'none'
+              filter: isAct && leadsToAccept ? 'drop-shadow(0 0 6px rgba(34,197,94,0.5))' : 'none',
+              opacity: edgeOpacity
             },
             animated: isAct
           });
@@ -399,7 +415,7 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejec
         }
 
         const isReverse = edgeMap.has(`${to}->${from}`);
-        const offset = isReverse ? (from < to ? 52 : -52) : 0;
+        const offset = isReverse ? (from < to ? 52 : -52) : (Math.abs(getDeterministicJitter(`${from}:${to}`, 'curve')) % 2 === 0 ? 22 : -22);
 
         newEdges.push({
           id: key,
@@ -420,7 +436,8 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejec
             strokeWidth: isAct ? (leadsToAccept ? 4 : 3) : 2,
             filter: isAct
               ? (leadsToAccept ? 'drop-shadow(0 0 6px rgba(34,197,94,0.5))' : 'drop-shadow(0 0 6px rgba(103,232,249,0.45))')
-              : 'none'
+              : 'none',
+            opacity: edgeOpacity
           },
           labelStyle: { fill: '#F9FAFB', fontSize: 14, fontFamily: 'Inter' },
           labelBgStyle: {
@@ -434,7 +451,7 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejec
     }
 
     setEdges(newEdges);
-  }, [automaton, stableAutomaton, activeNode, activeEdge, activeEdges, activeNodeCount, isEdgeActive, rejectNodes]); // include edge/node activity so highlights initialise correctly
+  }, [automaton, stableAutomaton, activeNode, activeEdge, activeEdges, activeNodeCount, isEdgeActive, rejectNodes, fadeInactiveEdges]); // include edge/node activity so highlights initialise correctly
 
   // Update node active / reject state without rebuilding positions
   useEffect(() => {
@@ -469,12 +486,13 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejec
           strokeWidth: isAct ? (leadsToAccept ? 4 : 3) : 2,
           filter: isAct
             ? (leadsToAccept ? 'drop-shadow(0 0 6px rgba(34,197,94,0.5))' : 'drop-shadow(0 0 6px rgba(103,232,249,0.45))')
-            : 'none'
+            : 'none',
+          opacity: fadeInactiveEdges && Array.isArray(activeEdges) && activeEdges.length > 0 && !isAct ? 0.2 : 1
         },
         animated:  isAct
       };
     }));
-  }, [activeEdge, activeEdges, isEdgeActive]);
+  }, [activeEdge, activeEdges, isEdgeActive, fadeInactiveEdges]);
 
   const onNodesChange = useCallback(changes => setNodes(nds => applyNodeChanges(changes, nds)), []);
   const onEdgesChange = useCallback(changes => setEdges(eds => applyEdgeChanges(changes, eds)), []);
