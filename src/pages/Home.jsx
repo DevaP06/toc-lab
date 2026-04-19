@@ -1,47 +1,124 @@
 import React from 'react';
-import './Home.css';
-import { Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { WavyBackground } from '../components/ui/wavy-background';
+import { Hero } from './home/Sections';
+import { Features, ToolCatalog, Closer, HomeFooter } from './home/Catalog';
+import { TweakPanel } from './home/Tweaks';
+
+const GlobalCSS = () => (
+  <style>{`
+    :root {
+      --font-display: 'Space Grotesk', system-ui, sans-serif;
+      --font-body: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    @keyframes btnShine {
+      0%, 100% { transform: translateX(-100%); }
+      50% { transform: translateX(100%); }
+    }
+    @keyframes gradientSlide {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    @keyframes dotPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.6; }
+    }
+    @keyframes floatY {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    @keyframes drift {
+      0%, 100% { transform: translate(0, 0); }
+      50% { transform: translate(-30px, 20px); }
+    }
+    @keyframes spinLogo {
+      to { transform: rotate(360deg); }
+    }
+    @media (max-width: 960px) {
+      .hero-grid { grid-template-columns: 1fr !important; gap: 48px !important; padding: 96px 24px 80px !important; }
+      .feature-grid { grid-template-columns: 1fr !important; }
+      .catalog-grid { grid-template-columns: 1fr !important; }
+    }
+    .heading-serif h1, .heading-serif h2, .heading-serif h3 {
+      font-family: 'Playfair Display', Georgia, serif !important; font-weight: 600 !important;
+    }
+    .heading-mono h1, .heading-mono h2, .heading-mono h3 {
+      font-family: 'JetBrains Mono', monospace !important; letter-spacing: -1px !important;
+    }
+  `}</style>
+);
+
+const TopNav = () => (
+  <nav style={{
+    position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
+    zIndex: 50,
+    display: 'flex', alignItems: 'center', gap: 8,
+    padding: '8px 10px 8px 18px',
+    background: 'rgba(11,16,32,0.7)', backdropFilter: 'blur(24px) saturate(1.2)',
+    border: '1px solid rgba(129,140,248,0.18)',
+    borderRadius: 999,
+    boxShadow: '0 10px 40px -10px rgba(0,0,0,0.6)',
+  }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingRight: 16, borderRight: '1px solid #26304A' }}>
+      <div style={{
+        width: 22, height: 22, borderRadius: 6,
+        background: 'conic-gradient(from 220deg, #6366F1, #C084FC, #60A5FA, #6366F1)',
+        animation: 'spinLogo 8s linear infinite',
+      }}/>
+      <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, letterSpacing: -0.3 }}>TOC Lab</span>
+    </div>
+    {[
+      { label: 'Simulators', to: '/simulators/dfa', active: true },
+      { label: 'Converters', to: '/converters/nfa-to-dfa', active: false },
+      { label: 'Analyzers',  to: '/analyzers/minimize',    active: false },
+      { label: 'Docs',       to: '/',                       active: false },
+    ].map(({ label, to, active }) => (
+      <Link key={label} to={to} style={{
+        padding: '8px 14px', borderRadius: 999,
+        fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
+        color: active ? '#F9FAFB' : '#A6B0C0',
+        background: active ? 'rgba(99,102,241,0.18)' : 'transparent',
+        transition: 'all 220ms', textDecoration: 'none',
+      }}>{label}</Link>
+    ))}
+  </nav>
+);
+
+const TWEAK_DEFAULTS = {
+  auroraVariant: 'aurora',
+  intensity: 1,
+  headingStyle: 'grotesk',
+  liveRunning: true,
+};
 
 const Home = () => {
+  const [state, setState] = React.useState(TWEAK_DEFAULTS);
+
+  React.useEffect(() => {
+    if (state.headingStyle === 'serif' && !document.getElementById('pf-font')) {
+      const l = document.createElement('link');
+      l.id = 'pf-font'; l.rel = 'stylesheet';
+      l.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,400&display=swap';
+      document.head.appendChild(l);
+    }
+  }, [state.headingStyle]);
+
+  const cls = state.headingStyle === 'serif' ? 'heading-serif'
+             : state.headingStyle === 'mono'  ? 'heading-mono'
+             : '';
+
   return (
-    <div className="fade-in w-full min-h-screen bg-[#0F172A] m-0 p-0 overflow-x-hidden">
-      {/* Hero Section */}
-      <WavyBackground waveOpacity={0.35} blur={15} className="max-w-5xl mx-auto pt-24 pb-10" containerClassName="w-full m-0 p-0">
-        <div className="flex flex-col items-center justify-center text-center px-6 sm:px-8 md:px-12 pt-10">
-          {/* <div className="badge mb-8 border border-[#6366F1]/50 text-[#818cf8] bg-[#6366F1]/20 backdrop-blur-md px-4 py-1.5 rounded-full text-[13px] font-semibold tracking-wide">v1.0.0 Now Available</div> */}
-          <h1 className="text-[40px] leading-[1.1] sm:text-5xl md:text-6xl lg:text-7xl xl:text-[80px] text-white font-bold inter-var text-center tracking-tight mb-6 drop-shadow-md">
-            Theory of Computation<br/>
-            <span className="text-[#60A5FA] drop-shadow-[0_0_20px_rgba(96,165,250,0.5)]">Interactive Lab</span>
-          </h1>
-          <p className="text-[16px] sm:text-lg md:text-xl text-[#B0B9C3] font-medium inter-var text-center max-w-3xl leading-relaxed">
-            Simulate automata and machines in an interactive, visual environment designed for deep understanding.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center w-full sm:w-auto gap-3 sm:gap-4 mt-10 mx-auto">
-            <Link to="/simulators/dfa" className="w-full sm:w-auto justify-center h-12 bg-[#6366F1] hover:bg-[#4F46E5] text-white px-8 rounded-full font-semibold flex items-center gap-2 transition-all shadow-[0_4px_14px_0_rgba(99,102,241,0.39)] hover:shadow-[0_6px_20px_rgba(99,102,241,0.23)] hover:-translate-y-0.5">
-              <Play size={18} />
-              Start Exploring
-            </Link>
-            <Link to="/converters/nfa-to-dfa" className="w-full sm:w-auto flex items-center justify-center h-12 bg-transparent border-2 border-[#6366F1]/70 text-[#a5b4fc] hover:bg-[#6366F1]/10 px-8 rounded-full font-semibold transition-all hover:-translate-y-0.5">
-              View Tools
-            </Link>
-          </div>
-        </div>
-      </WavyBackground>
-      
-      <div className="features-section">
-        <div className="feature-card glass-panel">
-          <div className="feature-icon bg-accent-primary"></div>
-          <h3>State Machines</h3>
-          <p>Visually build and simulate DFA, NFA, and PDA with step-by-step trace execution.</p>
-        </div>
-        <div className="feature-card glass-panel">
-          <div className="feature-icon bg-accent-secondary"></div>
-          <h3>Turing Complete</h3>
-          <p>Interactive Turing Machine simulator with dynamic tape visualization and head tracking.</p>
-        </div>
-      </div>
+    <div className={cls} style={{ background: '#0B1020', minHeight: '100vh', color: '#F9FAFB' }}>
+      <GlobalCSS/>
+      <TopNav/>
+      <Hero auroraVariant={state.auroraVariant} intensity={state.intensity} liveRunning={state.liveRunning}/>
+      <Features/>
+      <ToolCatalog/>
+      <Closer/>
+      <HomeFooter/>
+      <TweakPanel state={state} setState={setState}/>
     </div>
   );
 };
