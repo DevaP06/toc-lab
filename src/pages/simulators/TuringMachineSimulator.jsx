@@ -1,69 +1,63 @@
 import React, { useState } from 'react';
-import { Play, SkipForward, RotateCcw, Layers, Settings2 } from 'lucide-react';
+import { Play, SkipForward, RotateCcw } from 'lucide-react';
 import GraphVisualizer from '../../components/automata/GraphVisualizer';
-import { TuringMachine, getTMPreset, BLANK_SYMBOL } from '../../core/turingMachine';
+import { getTMPreset, BLANK_SYMBOL } from '../../core/turingMachine';
 import './TuringMachineSimulator.css';
 
 const PRESET_OPTIONS = [
-  { value: 'BINARY_INCREMENT', label: 'Binary Increment Machine' },
-  { value: 'EVEN_ONES', label: 'Even number of 1s' },
-  { value: 'REPLACE_1_WITH_0', label: 'Replace 1 with 0' },
-  { value: 'PALINDROME', label: 'Palindrome checker' }
+  {
+    value: 'BINARY_INCREMENT',
+    label: 'Binary Increment Machine',
+    description: 'Scans right to the blank, then propagates carry to increment a binary number by 1.'
+  },
+  {
+    value: 'EVEN_ONES',
+    label: 'Even number of 1s',
+    description: 'Tracks parity of 1s while reading the tape and accepts only if the count is even.'
+  },
+  {
+    value: 'REPLACE_1_WITH_0',
+    label: 'Replace 1 with 0',
+    description: 'Single-pass rewrite machine that converts every 1 on tape into 0.'
+  },
+  {
+    value: 'PALINDROME',
+    label: 'Palindrome checker',
+    description: 'Marks matching outer characters and verifies the tape reads the same in both directions.'
+  }
 ];
 
 const DEFAULT_PRESET = 'BINARY_INCREMENT';
 
+const getPresetEdges = (machine) => Object.entries(machine?.transitions || {}).flatMap(([from, bySymbol]) => (
+  Object.entries(bySymbol).map(([read, transition]) => ({
+    from,
+    to: transition.next,
+    read,
+    write: transition.write,
+    move: transition.move
+  }))
+));
+
 const getPresetDefinition = (selection) => {
   const preset = getTMPreset(selection);
+  const option = PRESET_OPTIONS.find(item => item.value === selection);
+
   return {
     selectedPreset: selection,
     presetLabel: preset.label,
+    inputString: preset.inputString,
     machine: preset.machine,
-    ...preset.definition,
+    presetDescription: option?.description || ''
   };
 };
 
-const parseTransitions = (text) => {
-  const transitions = {};
-  const edges = [];
-  const errors = [];
-
-  text.split('\n').forEach((rawLine, index) => {
-    const line = rawLine.trim();
-    if (!line) return;
-
-    const arrowMatch = line.includes('→') ? line.split('→') : line.split('->');
-    if (arrowMatch.length !== 2) {
-      errors.push(`Line ${index + 1}: expected format "q0,1 → q1,1,R".`);
-      return;
-    }
-
-    const leftParts = arrowMatch[0].split(',').map(part => part.trim()).filter(Boolean);
-    const rightParts = arrowMatch[1].split(',').map(part => part.trim()).filter(Boolean);
-
-    if (leftParts.length !== 2 || rightParts.length !== 3) {
-      errors.push(`Line ${index + 1}: invalid transition format.`);
-      return;
-    }
-
-    const [from, read] = leftParts;
-    const [next, write, move] = rightParts;
-    const normalizedMove = move.toUpperCase();
-
-    if (!transitions[from]) transitions[from] = {};
-    transitions[from][read] = { write, move: normalizedMove, next };
-    edges.push({ from, to: next, read, write, move: normalizedMove });
-  });
-
-  return { transitions, edges, errors };
-};
-
-const buildGraphData = (machine, parsedEdges) => {
+const buildGraphData = (machine, edges) => {
   if (!machine) return null;
 
   const edgeMap = new Map();
 
-  parsedEdges.forEach(({ from, to, read, write, move }) => {
+  edges.forEach(({ from, to, read, write, move }) => {
     const key = `${from}->${to}`;
     const label = `${read} → ${write}, ${move}`;
     if (edgeMap.has(key)) {
@@ -74,7 +68,7 @@ const buildGraphData = (machine, parsedEdges) => {
   });
 
   return {
-    states: machine.states,
+    states: Array.from(machine.states),
     edges: Array.from(edgeMap.values()).map(({ from, to, labels }) => ({
       from,
       to,
@@ -115,12 +109,13 @@ const TuringMachineSimulator = () => {
   const initialPreset = getPresetDefinition(DEFAULT_PRESET);
   const [definition, setDefinition] = useState(initialPreset);
   const [engine, setEngine] = useState(initialPreset.machine);
-  const [parsedEdges, setParsedEdges] = useState([]);
+  const [graphEdges, setGraphEdges] = useState(getPresetEdges(initialPreset.machine));
   const [simulation, setSimulation] = useState({ steps: [], currentStep: -1, accepted: false, timedOut: false });
   const [resultSummary, setResultSummary] = useState({
     status: 'Ready',
-    reason: 'Choose a preset and run the machine.',
+    reason: 'Select a predefined Turing Machine and run it on your input.',
   });
+  const [runtime, setRuntime] = useState(null);
   const [activeNode, setActiveNode] = useState(initialPreset.machine ? initialPreset.machine.startState : null);
   const [activeEdge, setActiveEdge] = useState(null);
 
@@ -128,143 +123,312 @@ const TuringMachineSimulator = () => {
     setDefinition(prev => ({ ...prev, [key]: value }));
   };
 
-  const parseMachine = () => {
-    try {
-      const statesArr = definition.states.split(',').map(item => item.trim()).filter(Boolean);
-      const tapeAlphabetArr = definition.tapeAlphabet.split(',').map(item => item.trim()).filter(Boolean);
-      const parsed = parseTransitions(definition.transitions);
-
-      if (parsed.errors.length > 0) {
-        alert(parsed.errors.join('\n'));
-        return null;
-      }
-
-      const machine = new TuringMachine(
-        statesArr,
-        tapeAlphabetArr,
-        definition.startState.trim(),
-        definition.acceptState.trim(),
-        definition.rejectState.trim(),
-        parsed.transitions
-      );
-
-      const validation = machine.validate();
-      if (!validation.isValid) {
-        alert('Turing Machine Error: ' + validation.error);
-        return null;
-      }
-
-      setEngine(machine);
-      setParsedEdges(parsed.edges);
-      return machine;
-    } catch (error) {
-      alert('Error parsing Turing Machine definition.');
-      return null;
-    }
-  };
-
   const handlePresetChange = (selection) => {
     const preset = getPresetDefinition(selection);
     setDefinition(preset);
     setEngine(preset.machine);
-    setParsedEdges(Object.entries(preset.machine.transitions).flatMap(([from, bySymbol]) => (
-      Object.entries(bySymbol).map(([read, transition]) => ({
-        from,
-        to: transition.next,
-        read,
-        write: transition.write,
-        move: transition.move
-      }))
-    )));
+    setGraphEdges(getPresetEdges(preset.machine));
     setSimulation({ steps: [], currentStep: -1, accepted: false, timedOut: false });
     setResultSummary({
       status: 'Ready',
-      reason: 'Choose a preset and run the machine.',
+      reason: 'Select a predefined Turing Machine and run it on your input.',
     });
+    setRuntime(null);
     setActiveNode(preset.machine.startState);
     setActiveEdge(null);
   };
 
-  const handleSimulate = () => {
-    const machine = parseMachine();
-    if (!machine) return;
-
-    const result = machine.simulateStepByStep(definition.inputString.trim());
-    const lastIndex = result.allSteps.length - 1;
-    const lastSnapshot = result.allSteps[lastIndex];
-
-    setSimulation({
-      steps: result.allSteps,
-      currentStep: lastIndex,
-      accepted: result.accepted,
-      timedOut: result.timedOut,
-    });
-    setActiveNode(lastSnapshot?.state || machine.startState);
-    setActiveEdge(lastSnapshot?.transition ? { from: lastSnapshot.transition.from, to: lastSnapshot.transition.next } : null);
-    setResultSummary({
-      status: result.timedOut ? 'Timed Out' : result.accepted ? 'Accepted' : 'Rejected',
-      reason: getResultReason(result)
-    });
+  const handleResetInputToPreset = () => {
+    const preset = getTMPreset(definition.selectedPreset);
+    setDefinition(prev => ({ ...prev, inputString: preset.inputString }));
   };
 
-  const handleStep = () => {
-    let machine = engine;
-    if (!machine) {
-      machine = parseMachine();
-      if (!machine) return;
-    }
+  const handleSimulate = () => {
+    const machine = engine;
+    if (!machine) return;
 
-    if (simulation.currentStep === -1) {
+    try {
       const result = machine.simulateStepByStep(definition.inputString.trim());
+      const lastIndex = result.allSteps.length - 1;
+      const lastSnapshot = result.allSteps[lastIndex];
+
       setSimulation({
         steps: result.allSteps,
-        currentStep: 0,
+        currentStep: lastIndex,
         accepted: result.accepted,
         timedOut: result.timedOut,
       });
-
-      const first = result.allSteps[0];
-      setActiveNode(first?.state || machine.startState);
-      setActiveEdge(first?.transition ? { from: first.transition.from, to: first.transition.next } : null);
+      setRuntime(null);
+      setActiveNode(lastSnapshot?.state || machine.startState);
+      setActiveEdge(lastSnapshot?.transition ? { from: lastSnapshot.transition.from, to: lastSnapshot.transition.next } : null);
       setResultSummary({
-        status: result.timedOut ? 'Timed Out' : result.accepted ? 'Accepted' : 'Running',
-        reason: result.timedOut ? getResultReason(result) : 'Use Step to move through the machine one transition at a time.'
+        status: result.timedOut ? 'Timed Out' : result.accepted ? 'Accepted' : 'Rejected',
+        reason: getResultReason(result)
+      });
+    } catch (err) {
+      setResultSummary({
+        status: 'Rejected',
+        reason: err?.message || 'Unable to simulate this input.'
+      });
+      setSimulation({ steps: [], currentStep: -1, accepted: false, timedOut: false });
+      setRuntime(null);
+      setActiveNode(machine.startState);
+      setActiveEdge(null);
+    }
+  };
+
+  const handleStep = () => {
+    const machine = engine;
+    if (!machine) return;
+
+    const runSingleTransition = (currentRuntime, stepNumber) => {
+      const tape = [...currentRuntime.tape];
+      let head = currentRuntime.head;
+      let state = currentRuntime.state;
+
+      while (head < 0) {
+        tape.unshift(BLANK_SYMBOL);
+        head += 1;
+      }
+
+      while (head >= tape.length) {
+        tape.push(BLANK_SYMBOL);
+      }
+
+      const readSymbol = tape[head] || BLANK_SYMBOL;
+      const transition = machine.getTransition(state, readSymbol);
+
+      if (!transition) {
+        return {
+          snapshot: {
+            step: stepNumber,
+            state,
+            tape: [...tape],
+            head,
+            readSymbol,
+            action: `No transition for (${state}, ${readSymbol})`,
+            status: 'REJECT',
+            transition: null
+          },
+          nextRuntime: {
+            tape,
+            head,
+            state,
+            halted: true,
+            accepted: false,
+            timedOut: false
+          }
+        };
+      }
+
+      const previousState = state;
+      const { write, move, next } = transition;
+      tape[head] = write;
+
+      if (move === 'L') {
+        head -= 1;
+      } else if (move === 'R') {
+        head += 1;
+      }
+
+      while (head < 0) {
+        tape.unshift(BLANK_SYMBOL);
+        head += 1;
+      }
+
+      while (head >= tape.length) {
+        tape.push(BLANK_SYMBOL);
+      }
+
+      state = next;
+      const status = state === machine.acceptState
+        ? 'ACCEPT'
+        : state === machine.rejectState
+          ? 'REJECT'
+          : 'ACTIVE';
+
+      return {
+        snapshot: {
+          step: stepNumber,
+          state,
+          tape: [...tape],
+          head,
+          readSymbol,
+          action: `(${previousState}, ${readSymbol}) → (${next}, ${write}, ${move})`,
+          status,
+          transition: { from: previousState, read: readSymbol, write, move, next }
+        },
+        nextRuntime: {
+          tape,
+          head,
+          state,
+          halted: status === 'ACCEPT' || status === 'REJECT',
+          accepted: status === 'ACCEPT',
+          timedOut: false
+        }
+      };
+    };
+
+    if (simulation.currentStep === -1) {
+      const input = definition.inputString.trim();
+
+      for (const ch of input) {
+        if (!machine.tapeAlphabet.has(ch)) {
+          setResultSummary({
+            status: 'Rejected',
+            reason: `Invalid symbol "${ch}" in input`
+          });
+          return;
+        }
+      }
+
+      const tape = input.length > 0 ? input.split('') : [];
+      if (tape.length === 0 || tape[tape.length - 1] !== BLANK_SYMBOL) {
+        tape.push(BLANK_SYMBOL);
+      }
+
+      const initialRuntime = {
+        tape,
+        head: 0,
+        state: machine.startState,
+        halted: false,
+        accepted: false,
+        timedOut: false
+      };
+
+      const initialSnapshot = {
+        step: 0,
+        state: machine.startState,
+        tape: [...tape],
+        head: 0,
+        readSymbol: tape[0] || BLANK_SYMBOL,
+        action: 'Initial configuration',
+        status: 'START',
+        transition: null
+      };
+
+      if (machine.startState === machine.acceptState || machine.startState === machine.rejectState) {
+        const terminalStatus = machine.startState === machine.acceptState ? 'ACCEPT' : 'REJECT';
+        const terminalSnapshot = { ...initialSnapshot, status: terminalStatus };
+        setSimulation({
+          steps: [terminalSnapshot],
+          currentStep: 0,
+          accepted: terminalStatus === 'ACCEPT',
+          timedOut: false,
+        });
+        setRuntime({ ...initialRuntime, halted: true, accepted: terminalStatus === 'ACCEPT' });
+        setActiveNode(terminalSnapshot.state);
+        setActiveEdge(null);
+        setResultSummary({
+          status: terminalStatus === 'ACCEPT' ? 'Accepted' : 'Rejected',
+          reason: terminalStatus === 'ACCEPT'
+            ? 'The machine halted in the accept state.'
+            : 'The machine halted in the reject state.'
+        });
+        return;
+      }
+
+      const firstTransitionResult = runSingleTransition(initialRuntime, 1);
+      const firstStep = firstTransitionResult.snapshot;
+      const stepped = [initialSnapshot, firstStep];
+
+      setSimulation({
+        steps: stepped,
+        currentStep: 1,
+        accepted: firstStep.status === 'ACCEPT',
+        timedOut: false,
+      });
+      setRuntime(firstTransitionResult.nextRuntime);
+      setActiveNode(firstStep?.state || machine.startState);
+      setActiveEdge(firstStep?.transition
+        ? { from: firstStep.transition.from, to: firstStep.transition.next }
+        : null);
+      setResultSummary({
+        status: firstStep.status === 'ACCEPT' ? 'Accepted' : firstStep.status === 'REJECT' ? 'Rejected' : 'Running',
+        reason: firstStep.status === 'ACCEPT'
+          ? 'The machine halted in the accept state.'
+          : firstStep.status === 'REJECT'
+            ? firstStep.action
+            : 'Use Step to move through the machine one transition at a time.'
       });
       return;
     }
 
-    if (simulation.currentStep < simulation.steps.length - 1) {
-      const nextStep = simulation.currentStep + 1;
-      const snapshot = simulation.steps[nextStep];
-      setSimulation(prev => ({ ...prev, currentStep: nextStep }));
-      setActiveNode(snapshot?.state || machine.startState);
-      setActiveEdge(snapshot?.transition ? { from: snapshot.transition.from, to: snapshot.transition.next } : null);
+    if (!runtime || runtime.halted) {
+      return;
+    }
 
-      if (nextStep === simulation.steps.length - 1) {
-        setResultSummary({
-          status: simulation.accepted ? 'Accepted' : snapshot?.status === 'REJECT' ? 'Rejected' : snapshot?.status || 'Running',
-          reason: simulation.accepted ? 'The machine halted in the accept state.' : getResultReason({ ...simulation, finalConfig: snapshot })
-        });
-      }
+    const transitionSteps = simulation.steps.length - 1;
+    if (transitionSteps >= machine.maxSteps) {
+      const timeoutSnapshot = {
+        step: simulation.steps.length,
+        state: runtime.state,
+        tape: [...runtime.tape],
+        head: runtime.head,
+        readSymbol: runtime.tape[runtime.head] || BLANK_SYMBOL,
+        action: `Step limit exceeded (${machine.maxSteps})`,
+        status: 'TIMEOUT',
+        transition: null
+      };
+
+      setSimulation(prev => ({
+        ...prev,
+        steps: [...prev.steps, timeoutSnapshot],
+        currentStep: prev.steps.length,
+        timedOut: true
+      }));
+      setRuntime({ ...runtime, halted: true, timedOut: true });
+      setActiveNode(timeoutSnapshot.state);
+      setActiveEdge(null);
+      setResultSummary({
+        status: 'Timed Out',
+        reason: 'Step limit exceeded. The machine may be looping.'
+      });
+      return;
+    }
+
+    const nextResult = runSingleTransition({
+      tape: [...runtime.tape],
+      head: runtime.head,
+      state: runtime.state
+    }, simulation.steps.length);
+    const nextSnapshot = nextResult.snapshot;
+
+    setSimulation(prev => ({
+      ...prev,
+      steps: [...prev.steps, nextSnapshot],
+      currentStep: prev.steps.length,
+      accepted: nextSnapshot.status === 'ACCEPT' ? true : prev.accepted
+    }));
+    setRuntime(nextResult.nextRuntime);
+    setActiveNode(nextSnapshot?.state || machine.startState);
+    setActiveEdge(nextSnapshot?.transition ? { from: nextSnapshot.transition.from, to: nextSnapshot.transition.next } : null);
+
+    if (nextSnapshot.status === 'ACCEPT') {
+      setResultSummary({
+        status: 'Accepted',
+        reason: 'The machine halted in the accept state.'
+      });
+      return;
+    }
+
+    if (nextSnapshot.status === 'REJECT') {
+      setResultSummary({
+        status: 'Rejected',
+        reason: nextSnapshot.action
+      });
     }
   };
 
   const handleReset = () => {
     setSimulation({ steps: [], currentStep: -1, accepted: false, timedOut: false });
-    setResultSummary({ status: 'Ready', reason: 'Choose a preset and run the machine.' });
-    setActiveNode(engine?.startState || definition.startState);
+    setResultSummary({ status: 'Ready', reason: 'Select a predefined Turing Machine and run it on your input.' });
+    setRuntime(null);
+    setActiveNode(engine?.startState || null);
     setActiveEdge(null);
   };
 
-  const graphData = buildGraphData(engine, parsedEdges.length ? parsedEdges : Object.entries(engine?.transitions || {}).flatMap(([from, bySymbol]) => (
-    Object.entries(bySymbol).map(([read, transition]) => ({
-      from,
-      to: transition.next,
-      read,
-      write: transition.write,
-      move: transition.move
-    }))
-  )));
+  const graphData = buildGraphData(engine, graphEdges);
 
   const currentSnapshot = getPrimarySnapshot(simulation.steps, simulation.currentStep);
   const tape = currentSnapshot?.tape || [];
@@ -282,7 +446,7 @@ const TuringMachineSimulator = () => {
         <div>
           <h2>Turing Machine Simulator</h2>
           <p className="text-muted">
-            Select a preset machine, enter an input string, and inspect tape movement step by step.
+            Select a predefined Turing Machine and run it on your input.
           </p>
         </div>
       </div>
@@ -290,10 +454,7 @@ const TuringMachineSimulator = () => {
       <div className="tm-main-grid">
         <div className="tm-left">
           <div className="panel tm-config-panel">
-            <h3 className="panel-header">
-              <Settings2 size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} />
-              Machine Configuration
-            </h3>
+            <h3 className="panel-header">Preset Machine</h3>
 
             <div className="form-group">
               <label>Preset Machine</label>
@@ -304,49 +465,9 @@ const TuringMachineSimulator = () => {
               </select>
             </div>
 
-            <div className="form-group">
-              <label>States</label>
-              <input value={definition.states} onChange={e => setField('states', e.target.value)} placeholder="q0, q1, qa, qr" />
-            </div>
-
-            <div className="tm-field-row">
-              <div className="form-group">
-                <label>Tape Alphabet</label>
-                <input value={definition.tapeAlphabet} onChange={e => setField('tapeAlphabet', e.target.value)} placeholder="0, 1, _" />
-              </div>
-              <div className="form-group">
-                <label>Start State</label>
-                <input value={definition.startState} onChange={e => setField('startState', e.target.value)} placeholder="q0" />
-              </div>
-            </div>
-
-            <div className="tm-field-row">
-              <div className="form-group">
-                <label>Accept State</label>
-                <input value={definition.acceptState} onChange={e => setField('acceptState', e.target.value)} placeholder="qa" />
-              </div>
-              <div className="form-group">
-                <label>Reject State</label>
-                <input value={definition.rejectState} onChange={e => setField('rejectState', e.target.value)} placeholder="qr" />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>
-                Transitions
-                <span className="field-hint">from,read → next,write,move — one per line</span>
-              </label>
-              <textarea
-                rows={10}
-                value={definition.transitions}
-                onChange={e => setField('transitions', e.target.value)}
-                placeholder={`q0,1 → q0,1,R\nq0,_ → qa,_,S`}
-              />
-            </div>
+            <p className="tm-preset-description">{definition.presetDescription}</p>
           </div>
-        </div>
 
-        <div className="tm-right">
           <div className="panel tm-controls-panel">
             <h3 className="panel-header">Execution Controls</h3>
             <div className="form-group">
@@ -354,7 +475,7 @@ const TuringMachineSimulator = () => {
               <input
                 value={definition.inputString}
                 onChange={e => setField('inputString', e.target.value)}
-                placeholder="Enter binary input or tape symbols"
+                placeholder="Enter input for the selected preset"
               />
             </div>
 
@@ -370,11 +491,31 @@ const TuringMachineSimulator = () => {
               </button>
             </div>
 
+            <div className="control-buttons tm-secondary-controls">
+              <button className="btn btn-secondary" onClick={handleResetInputToPreset}>
+                Reset to preset input
+              </button>
+            </div>
+
             <div className="tm-status-strip">
               <div className="tm-status-item"><span className="tm-label">Step</span><span className="tm-value">{simulation.currentStep >= 0 ? simulation.currentStep : '-'}</span></div>
-              <div className="tm-status-item"><span className="tm-label">State</span><span className="tm-value">{currentSnapshot?.state || definition.startState}</span></div>
+              <div className="tm-status-item"><span className="tm-label">State</span><span className="tm-value">{currentSnapshot?.state || engine?.startState || '-'}</span></div>
               <div className="tm-status-item"><span className="tm-label">Symbol</span><span className="tm-value">{currentSymbol}</span></div>
               <div className="tm-status-item"><span className="tm-label">Action</span><span className="tm-value tm-action">{currentSnapshot?.action || 'Not started'}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="tm-right">
+          <div className="panel tm-diagram-panel">
+            <h3 className="panel-header">State Diagram</h3>
+            <div className="tm-diagram-canvas">
+              <GraphVisualizer
+                automaton={graphData}
+                activeNode={activeNode}
+                activeEdge={activeEdge}
+                rejectNodes={rejectNodes}
+              />
             </div>
           </div>
 
@@ -421,7 +562,7 @@ const TuringMachineSimulator = () => {
             <div className="panel tm-state-panel">
               <h3 className="panel-header">Current State</h3>
               <div className={`tm-state-bubble ${currentSnapshot?.status === 'ACCEPT' ? 'state-accept' : currentSnapshot?.status === 'REJECT' || currentSnapshot?.status === 'TIMEOUT' ? 'state-reject' : 'state-active'}`}>
-                {currentSnapshot?.state || definition.startState}
+                {currentSnapshot?.state || engine?.startState || '-'}
               </div>
               <div className="tm-state-meta">
                 <div><span className="tm-label">Head</span><span className="tm-value">{head}</span></div>
@@ -452,18 +593,6 @@ const TuringMachineSimulator = () => {
               {simulation.accepted ? 'Machine accepted the input.' : simulation.timedOut ? 'Machine timed out during simulation.' : 'Machine rejected the input.'}
             </div>
           )}
-
-          <div className="panel tm-diagram-panel" style={{ height: 340, display: 'flex', flexDirection: 'column' }}>
-            <h3 className="panel-header">State Diagram</h3>
-            <div style={{ flex: 1, minHeight: 0 }}>
-              <GraphVisualizer
-                automaton={graphData}
-                activeNode={activeNode}
-                activeEdge={activeEdge}
-                rejectNodes={rejectNodes}
-              />
-            </div>
-          </div>
         </div>
       </div>
     </div>

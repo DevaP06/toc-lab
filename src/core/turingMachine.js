@@ -4,13 +4,14 @@
 export const BLANK_SYMBOL = '_';
 
 export class TuringMachine {
-  constructor(states, tapeAlphabet, startState, acceptState, rejectState, transitions) {
+  constructor(states, tapeAlphabet, startState, acceptState, rejectState, transitions, maxSteps = 2000) {
     this.states = new Set(states);
     this.tapeAlphabet = new Set(tapeAlphabet);
     this.startState = startState;
     this.acceptState = acceptState;
     this.rejectState = rejectState;
     this.transitions = transitions || {};
+    this.maxSteps = maxSteps;
   }
 
   validate() {
@@ -68,14 +69,23 @@ export class TuringMachine {
   }
 
   simulateStepByStep(inputString) {
+    for (const ch of inputString || '') {
+      if (!this.tapeAlphabet.has(ch)) {
+        throw new Error(`Invalid symbol "${ch}" in input`);
+      }
+    }
+
     const tape = (inputString && inputString.length > 0)
-      ? [...inputString.split(''), BLANK_SYMBOL]
-      : [BLANK_SYMBOL];
+      ? inputString.split('')
+      : [];
+
+    if (tape.length === 0 || tape[tape.length - 1] !== BLANK_SYMBOL) {
+      tape.push(BLANK_SYMBOL);
+    }
 
     let head = 0;
     let state = this.startState;
     const allSteps = [];
-    const MAX_STEPS = 500;
     let accepted = false;
     let timedOut = false;
 
@@ -128,7 +138,7 @@ export class TuringMachine {
       };
     }
 
-    for (let iteration = 0; iteration < MAX_STEPS; iteration++) {
+    for (let iteration = 0; iteration < this.maxSteps; iteration++) {
       ensureTapeBounds();
 
       const readSymbol = tape[head] || BLANK_SYMBOL;
@@ -208,6 +218,9 @@ const createTransitionsObject = (transitionList) => {
 
   transitionList.forEach(({ from, read, write, move, next }) => {
     if (!transitionMap[from]) transitionMap[from] = {};
+    if (transitionMap[from][read]) {
+      throw new Error(`Duplicate transition for (${from}, ${read})`);
+    }
     transitionMap[from][read] = { write, move, next };
   });
 

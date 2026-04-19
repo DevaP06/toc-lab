@@ -4,6 +4,33 @@
   padding: 0 32px 48px;
 }
 
+.tm-page,
+.tm-tape-scroll,
+.tm-diagram-canvas {
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 transparent;
+}
+
+.tm-page::-webkit-scrollbar,
+.tm-tape-scroll::-webkit-scrollbar,
+.tm-diagram-canvas::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.tm-page::-webkit-scrollbar-thumb,
+.tm-tape-scroll::-webkit-scrollbar-thumb,
+.tm-diagram-canvas::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 999px;
+}
+
+.tm-page::-webkit-scrollbar-thumb:hover,
+.tm-tape-scroll::-webkit-scrollbar-thumb:hover,
+.tm-diagram-canvas::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
 .tm-header {
   margin: 36px 0 28px;
   padding-bottom: 24px;
@@ -36,14 +63,7 @@
 }
 
 .tm-config-panel {
-  position: sticky;
-  top: 24px;
-}
-
-.tm-field-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  position: static;
 }
 
 .tm-controls-panel,
@@ -54,22 +74,45 @@
   margin-bottom: 20px;
 }
 
+.tm-diagram-panel {
+  height: 340px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tm-diagram-canvas {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tm-diagram-canvas .graph-container {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .tm-page select {
   width: 100%;
   padding: 12px 16px;
-  background-color: #111827;
+  background-color: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 14px;
   color: var(--text-primary);
 }
 
-.field-hint {
-  display: block;
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--text-muted);
-  margin-top: 2px;
+.tm-page select option {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.tm-preset-description {
+  margin: 10px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .control-buttons {
@@ -83,6 +126,10 @@
   justify-content: center;
   font-size: 13px;
   padding: 10px 12px;
+}
+
+.tm-secondary-controls {
+  margin-top: 10px;
 }
 
 .tm-status-strip {
@@ -201,7 +248,7 @@
   position: absolute;
   top: -18px;
   font-size: 14px;
-  color: #F59E0B;
+  color: var(--accent-highlight);
   font-weight: 700;
 }
 
@@ -216,8 +263,8 @@
 
 .tm-head {
   background: rgba(245, 158, 11, 0.18);
-  border-color: #F59E0B;
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12), 0 0 12px rgba(245, 158, 11, 0.18);
+  border-color: var(--accent-highlight);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.1), 0 0 6px rgba(245, 158, 11, 0.14);
   transform: translateY(-2px);
 }
 
@@ -236,7 +283,6 @@
 
 @media (max-width: 900px) {
   .tm-state-row,
-  .tm-field-row,
   .tm-status-strip {
     grid-template-columns: 1fr;
   }
@@ -290,8 +336,8 @@
 }
 
 .tm-log-box {
-  max-height: 320px;
-  overflow-y: auto;
+  max-height: none;
+  overflow-y: visible;
   display: flex;
   flex-direction: column;
   gap: 8px;

@@ -217,7 +217,11 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejec
     if (!automaton) return '';
 
     try {
-      const states = automaton.states instanceof Set ? Array.from(automaton.states).sort() : [];
+      const states = automaton.states instanceof Set
+        ? Array.from(automaton.states).sort()
+        : Array.isArray(automaton.states)
+          ? [...automaton.states].sort()
+          : [];
       const acceptStates = automaton.acceptStates instanceof Set ? Array.from(automaton.acceptStates).sort() : [];
       const transition = automaton.transition || null;
       const pdaEdges = Array.isArray(automaton.edges) ? automaton.edges : null;
@@ -243,8 +247,14 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejec
       return;
     }
 
-    if (!(automaton.states instanceof Set)) {
-      console.error('States must be a Set');
+    const statesSet = automaton.states instanceof Set
+      ? automaton.states
+      : Array.isArray(automaton.states)
+        ? new Set(automaton.states)
+        : null;
+
+    if (!statesSet) {
+      console.error('States must be a Set or an Array');
       setNodes([]);
       setEdges([]);
       return;
@@ -260,7 +270,11 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, activeEdges, rejec
       }
     }
 
-    const { states, startState, acceptStates } = automaton;
+    const { startState } = automaton;
+    const states = statesSet;
+    const acceptStates = automaton.acceptStates instanceof Set
+      ? automaton.acceptStates
+      : new Set(automaton.acceptStates || []);
     const usePda = Array.isArray(automaton.edges);
 
     if (!states || states.size === 0) {
