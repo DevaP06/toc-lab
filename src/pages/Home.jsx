@@ -79,10 +79,9 @@ const TopNav = () => (
       <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, letterSpacing: -0.3 }}>TOC Lab</span>
     </div>
     {[
-      { label: 'Simulators', to: '/simulators/dfa', active: true },
+      { label: 'Simulators', to: '/simulators/dfa', active: false },
       { label: 'Converters', to: '/converters/nfa-to-dfa', active: false },
       { label: 'Analyzers',  to: '/analyzers/minimize',    active: false },
-      { label: 'Docs',       to: '/',                       active: false },
     ].map(({ label, to, active }) => (
       <Link key={label} to={to} style={{
         padding: '8px 14px', borderRadius: 999,
