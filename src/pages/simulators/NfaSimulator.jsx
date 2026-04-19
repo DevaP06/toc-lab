@@ -105,7 +105,7 @@ const NfaSimulator = () => {
         <p className="text-muted">Define a Nondeterministic Finite Automaton (with ε-transitions) and visualize its parallel computation steps.</p>
       </div>
 
-      <div className="simulator-grid">
+      <div className="simulator-grid main-container">
         <div className="left-panel">
           <div className="panel input-panel">
             <h3 className="panel-header">NFA Definition</h3>
@@ -140,35 +140,37 @@ const NfaSimulator = () => {
                />
             </div>
           </div>
-
-          <div className="panel simulation-controls">
-            <h3 className="panel-header">Execution</h3>
-            <div className="form-group">
-              <label>Input String</label>
-              <input 
-                value={definition.inputString} 
-                onChange={e => setDefinition({...definition, inputString: e.target.value})} 
-              />
-            </div>
-            
-            <div className="control-buttons">
-              <button className="btn btn-success" onClick={handleRunAll}>
-                <Play size={16} /> Run Complete
-              </button>
-              <button className="btn btn-warning" onClick={handleStep}>
-                <SkipForward size={16} /> Step
-              </button>
-              <button className="btn btn-danger" onClick={handleReset}>
-                <RotateCcw size={16} /> Reset
-              </button>
-            </div>
-          </div>
         </div>
 
         <div className="right-panel">
           <div className="panel visualization-panel">
             <h3 className="panel-header">Graph Output</h3>
-            <GraphVisualizer automaton={engine} activeNode={activeNodes} />
+            <div className="graph-box">
+              <GraphVisualizer automaton={engine} activeNode={activeNodes} />
+
+              <div className="controls-overlay">
+                <div className="overlay-input-group">
+                  <label>Input String</label>
+                  <input
+                    value={definition.inputString}
+                    onChange={e => setDefinition({...definition, inputString: e.target.value})}
+                    placeholder="e.g. 01"
+                  />
+                </div>
+
+                <div className="control-buttons">
+                  <button className="btn btn-success" onClick={handleRunAll}>
+                    <Play size={16} /> Run Complete
+                  </button>
+                  <button className="btn btn-warning" onClick={handleStep}>
+                    <SkipForward size={16} /> Step
+                  </button>
+                  <button className="btn btn-danger" onClick={handleReset}>
+                    <RotateCcw size={16} /> Reset
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="panel log-panel">
@@ -183,18 +185,23 @@ const NfaSimulator = () => {
                 {simulationParams.accepted ? '✅ String Accepted' : '❌ String Rejected'}
               </div>
             )}
-            <div className="trace-box">
-              {simulationParams.steps.map((step, idx) => (
-                <div key={idx} className={`trace-line ${idx === simulationParams.currentStep ? 'current' : ''} ${step.status === 'ACCEPT' ? 'success' : step.status.includes('REJECT') ? 'error' : ''}`}>
-                  <span className="step-num">Step {step.step}:</span>
-                  {step.symbol ? (
-                    <span> <code>{formatSet(step.from)}</code> --(<strong>{step.symbol}</strong>)--&gt; <code>{formatSet(step.to)}</code></span>
-                  ) : (
-                    <span> <strong>{step.status}</strong> on Set <code>{formatSet(step.from)}</code></span>
-                  )}
+            <div className="trace-box trace-section">
+              {simulationParams.steps.length === 0 ? (
+                <div className="trace-empty">▶ Run or Step to start simulation</div>
+              ) : (
+                <div className="trace-content">
+                  {simulationParams.steps.map((step, idx) => (
+                    <div key={idx} className={`trace-line ${idx === simulationParams.currentStep ? 'current' : ''} ${step.status === 'ACCEPT' ? 'success' : step.status.includes('REJECT') ? 'error' : ''}`}>
+                      <span className="step-num">Step {step.step}:</span>
+                      {step.symbol ? (
+                        <span> <code>{formatSet(step.from)}</code> --(<strong>{step.symbol}</strong>)--&gt; <code>{formatSet(step.to)}</code></span>
+                      ) : (
+                        <span> <strong>{step.status}</strong> on Set <code>{formatSet(step.from)}</code></span>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
-              {simulationParams.steps.length === 0 && <span className="text-muted">No simulation started.</span>}
+              )}
             </div>
           </div>
         </div>

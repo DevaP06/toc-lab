@@ -2,30 +2,42 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import './Sidebar.css';
 
+const SidebarNavItem = ({ path, badge, label }) => (
+  <NavLink
+    to={path}
+    className={({ isActive }) => (isActive ? 'sidebar-link active' : 'sidebar-link')}
+    title={label}
+    data-tooltip={label}
+  >
+    <span className="sidebar-badge" aria-hidden="true">{badge}</span>
+    <span className="sidebar-link-text">{label}</span>
+  </NavLink>
+);
+
 const Sidebar = ({ collapsed = false }) => {
   const sections = [
     {
       title: 'SIMULATORS',
       links: [
-        { name: 'DFA Simulator', path: '/simulators/dfa' },
-        { name: 'NFA Simulator', path: '/simulators/nfa' },
-        { name: 'PDA Simulator', path: '/simulators/pda' },
-        { name: 'Turing Machine', path: '/simulators/tm' }
+        { badge: 'DFA', label: 'Deterministic Finite Automaton', path: '/simulators/dfa' },
+        { badge: 'NFA', label: 'Nondeterministic Finite Automaton', path: '/simulators/nfa' },
+        { badge: 'PDA', label: 'Pushdown Automaton', path: '/simulators/pda' },
+        { badge: 'TM', label: 'Turing Machine', path: '/simulators/tm' }
       ]
     },
     {
       title: 'CONVERTERS',
       links: [
-        { name: 'NFA → DFA', path: '/converters/nfa-to-dfa' },
-        { name: 'Regex → NFA', path: '/converters/regex-to-nfa' },
-        { name: 'FA → Regex', path: '/converters/fa-to-regex' }
+        { badge: 'N2D', label: 'NFA to DFA', path: '/converters/nfa-to-dfa' },
+        { badge: 'R2N', label: 'Regex to NFA', path: '/converters/regex-to-nfa' },
+        { badge: 'F2R', label: 'FA to Regex', path: '/converters/fa-to-regex' }
       ]
     },
     {
       title: 'ANALYZERS',
       links: [
-        { name: 'DFA Minimization', path: '/analyzers/dfa-minimizer' },
-        { name: 'DFA Equivalence', path: '/analyzers/equivalence' }
+        { badge: 'MIN', label: 'DFA Minimization', path: '/analyzers/dfa-minimizer' },
+        { badge: 'EQV', label: 'DFA Equivalence', path: '/analyzers/equivalence' }
       ]
     }
   ];
@@ -39,13 +51,7 @@ const Sidebar = ({ collapsed = false }) => {
             <ul className="sidebar-list">
               {section.links.map((link, lIndex) => (
                 <li key={lIndex}>
-                  <NavLink 
-                    to={link.path}
-                    className={({ isActive }) => (isActive ? 'sidebar-link active' : 'sidebar-link')}
-                    title={link.name}
-                  >
-                    <span className="sidebar-link-text">{link.name}</span>
-                  </NavLink>
+                  <SidebarNavItem path={link.path} badge={link.badge} label={link.label} />
                 </li>
               ))}
             </ul>
