@@ -80,6 +80,7 @@ code, pre {
   display: flex;
   flex: 1;
   margin-top: 70px; /* Navbar height */
+  min-width: 0;
 }
 
 .workspace-area {
@@ -88,6 +89,39 @@ code, pre {
   padding: 32px;
   overflow-y: auto;
   height: calc(100vh - 70px);
+  min-width: 0;
+}
+
+.sidebar-toggle-fab {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .main-content {
+    position: relative;
+  }
+
+  .workspace-area {
+    width: 100%;
+  }
+
+  .sidebar-toggle-fab {
+    display: inline-flex;
+    position: fixed;
+    left: 16px;
+    bottom: 20px;
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    align-items: center;
+    justify-content: center;
+    background: rgba(31, 41, 55, 0.95);
+    color: var(--text-primary);
+    z-index: 130;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+  }
 }
 
 /* Animations & Glassmorphism */

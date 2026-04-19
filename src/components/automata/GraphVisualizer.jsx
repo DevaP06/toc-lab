@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   ReactFlow,
   Background,
@@ -72,25 +72,40 @@ const PdaEdge = ({
   sourcePosition, targetPosition,
   data, markerEnd, style
 }) => {
-  const { rawLabel = '', isActive = false } = data || {};
+  const { rawLabel = '', isActive = false, curvature = 0 } = data || {};
   const isSelfLoop = source === target;
 
   let edgePath, labelX, labelY;
 
   if (isSelfLoop) {
-    // Draw an arch above the node using the target (top) handle position
-    const loopW = 32;
-    const loopH = 55;
-    const sx = targetX - loopW;
-    const ex = targetX + loopW;
-    const cy = targetY;
-    edgePath = `M ${sx},${cy} C ${sx},${cy - loopH - 20} ${ex},${cy - loopH - 20} ${ex},${cy}`;
-    labelX = targetX;
-    labelY = cy - loopH - 18;
+    // Draw a loop that leaves and returns to the same node boundary.
+    // targetX/targetY is near the top handle; infer node center from that.
+    const nodeRadius = 25;
+    const centerX = targetX;
+    const centerY = targetY + nodeRadius;
+
+    const startAngle = (225 * Math.PI) / 180; // upper-left boundary point
+    const endAngle = (315 * Math.PI) / 180;   // upper-right boundary point
+
+    const sx = centerX + nodeRadius * Math.cos(startAngle);
+    const sy = centerY + nodeRadius * Math.sin(startAngle);
+    const ex = centerX + nodeRadius * Math.cos(endAngle);
+    const ey = centerY + nodeRadius * Math.sin(endAngle);
+
+    const c1x = sx - 10;
+    const c1y = sy - 45;
+    const c2x = ex + 10;
+    const c2y = ey - 45;
+
+    edgePath = `M ${sx},${sy} C ${c1x},${c1y} ${c2x},${c2y} ${ex},${ey}`;
+    labelX = centerX;
+    labelY = Math.min(c1y, c2y) - 6;
   } else {
+    const mappedCurvature = curvature > 0 ? Math.min(0.85, 0.25 + curvature / 100) : 0.25;
     [edgePath, labelX, labelY] = getBezierPath({
       sourceX, sourceY, sourcePosition,
-      targetX, targetY, targetPosition
+      targetX, targetY, targetPosition,
+      curvature: mappedCurvature
     });
   }
 
@@ -106,7 +121,7 @@ const PdaEdge = ({
             color:       isActive ? '#A5F3FC' : '#E5E7EB',
             border:      `1px solid ${isActive ? '#67E8F9' : '#374151'}`,
             borderRadius: 4,
-            padding:     '2px 6px',
+            padding:     '4px 8px',
             fontSize:    11,
             fontFamily:  'monospace',
             whiteSpace:  'pre',
@@ -126,17 +141,82 @@ const PdaEdge = ({
 const nodeTypes = { stateNode: StateNode };
 const edgeTypes = { pdaEdge: PdaEdge };
 
+const getDeterministicJitter = (state, axis = 'x') => {
+  const seed = `${state}:${axis}`;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash << 5) - hash + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash % 11);
+};
+
 // ── GraphVisualizer ────────────────────────────────────────────────────────
 const GraphVisualizer = ({ automaton, activeNode, activeEdge, rejectNodes }) => {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
+  const stableAutomaton = useMemo(() => {
+    if (!automaton) return '';
+
+    try {
+      const states = automaton.states instanceof Set ? Array.from(automaton.states).sort() : [];
+      const acceptStates = automaton.acceptStates instanceof Set ? Array.from(automaton.acceptStates).sort() : [];
+      const transition = automaton.transition || null;
+      const pdaEdges = Array.isArray(automaton.edges) ? automaton.edges : null;
+
+      return JSON.stringify({
+        states,
+        startState: automaton.startState,
+        acceptStates,
+        transition,
+        pdaEdges
+      });
+    } catch {
+      return String(Date.now());
+    }
+  }, [automaton]);
 
   // Rebuild graph when automaton structure or activeEdge changes
   useEffect(() => {
-    if (!automaton) return;
+    if (!automaton || !automaton.states || !automaton.startState) {
+      console.error('Invalid automaton structure');
+      setNodes([]);
+      setEdges([]);
+      return;
+    }
+
+    if (!(automaton.states instanceof Set)) {
+      console.error('States must be a Set');
+      setNodes([]);
+      setEdges([]);
+      return;
+    }
+
+    if (typeof automaton.validate === 'function') {
+      const result = automaton.validate();
+      if (!result?.isValid) {
+        console.error(result?.error || 'Invalid automaton');
+        setNodes([]);
+        setEdges([]);
+        return;
+      }
+    }
 
     const { states, startState, acceptStates } = automaton;
     const usePda = Array.isArray(automaton.edges);
+
+    if (!states || states.size === 0) {
+      setNodes([]);
+      setEdges([]);
+      return;
+    }
+
+    if (!usePda && !automaton.transition) {
+      console.error('Missing transition table');
+      setNodes([]);
+      setEdges([]);
+      return;
+    }
 
     const SPACING_X = 150;
     const SPACING_Y = 150;
@@ -150,7 +230,10 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, rejectNodes }) => 
       return Array.from(states).map((state, i) => {
         const col = i % COLS;
         const row = Math.floor(i / COLS);
-        const pos = posMap[state] || { x: col * SPACING_X + 50, y: row * SPACING_Y + 50 };
+        const pos = posMap[state] ?? {
+          x: col * SPACING_X + 50 + getDeterministicJitter(state, 'x'),
+          y: row * SPACING_Y + 50 + getDeterministicJitter(state, 'y')
+        };
         const isNodeActive = Array.isArray(activeNode)  ? activeNode.includes(state)  : state === activeNode;
         const isNodeReject = Array.isArray(rejectNodes) ? rejectNodes.includes(state) : state === rejectNodes;
         return {
@@ -160,7 +243,7 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, rejectNodes }) => 
             isStart:  state === startState,
             isAccept: acceptStates.has(state),
             active:   isNodeActive,
-            isReject: isNodeActive && isNodeReject
+            isReject: isNodeReject
           }
         };
       });
@@ -196,34 +279,68 @@ const GraphVisualizer = ({ automaton, activeNode, activeEdge, rejectNodes }) => 
             : [transition[fromState][symbol]];
           for (const toState of targets) {
             const key = `${fromState}->${toState}`;
-            if (edgeMap.has(key)) edgeMap.get(key).labels.push(symbol);
-            else edgeMap.set(key, { from: fromState, to: toState, labels: [symbol] });
+            if (!edgeMap.has(key)) {
+              edgeMap.set(key, { from: fromState, to: toState, labels: [symbol] });
+            } else {
+              const entry = edgeMap.get(key);
+              if (!entry.labels.includes(symbol)) {
+                entry.labels.push(symbol);
+              }
+            }
           }
         }
       }
       for (const [key, { from, to, labels }] of edgeMap) {
-        const isAct = Array.isArray(activeNode) ? activeNode.includes(from) : activeNode === from;
+        const isAct = !!(activeEdge && activeEdge.from === from && activeEdge.to === to);
+
+        if (from === to) {
+          newEdges.push({
+            id: key,
+            source: from,
+            target: to,
+            type: 'pdaEdge',
+            data: { rawLabel: labels.join(', '), isActive: isAct, curvature: 0 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: isAct ? '#67E8F9' : '#9CA3AF' },
+            style: { stroke: isAct ? '#67E8F9' : '#9CA3AF', strokeWidth: isAct ? 3 : 2 },
+            animated: isAct
+          });
+          continue;
+        }
+
+        const isReverse = edgeMap.has(`${to}->${from}`);
+        const offset = isReverse ? 30 : 0;
+
         newEdges.push({
-          id: key, source: from, target: to,
-          label: labels.join(', '),
-          markerEnd: { type: MarkerType.ArrowClosed, color: '#9CA3AF' },
-          style: { stroke: '#9CA3AF', strokeWidth: 2 },
+          id: key,
+          source: from,
+          target: to,
+          type: 'pdaEdge',
+          data: { rawLabel: labels.join(', '), isActive: isAct, curvature: offset },
+          markerEnd: { type: MarkerType.ArrowClosed, color: isAct ? '#67E8F9' : '#9CA3AF' },
+          style: { stroke: isAct ? '#67E8F9' : '#9CA3AF', strokeWidth: isAct ? 3 : 2 },
           labelStyle: { fill: '#F9FAFB', fontSize: 14, fontFamily: 'Inter' },
-          labelBgStyle: { fill: '#1F2937' },
+          labelBgStyle: {
+            fill: '#1F2937',
+            padding: 4,
+            borderRadius: 4
+          },
           animated: isAct
         });
       }
     }
 
+    // Temporary debug output for edge diagnostics.
+    console.log(newEdges);
+
     setEdges(newEdges);
-  }, [automaton, activeEdge]); // include activeEdge so PDA edges initialise correctly
+  }, [stableAutomaton, activeEdge]); // include activeEdge so PDA edges initialise correctly
 
   // Update node active / reject state without rebuilding positions
   useEffect(() => {
     setNodes(nds => nds.map(n => {
       const isNodeActive = Array.isArray(activeNode)  ? activeNode.includes(n.id)  : n.id === activeNode;
       const isNodeReject = Array.isArray(rejectNodes) ? rejectNodes.includes(n.id) : n.id === rejectNodes;
-      return { ...n, data: { ...n.data, active: isNodeActive, isReject: isNodeActive && isNodeReject } };
+      return { ...n, data: { ...n.data, active: isNodeActive, isReject: isNodeReject } };
     }));
   }, [activeNode, rejectNodes]);
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import './Sidebar.css';
 
-const Sidebar = () => {
+const Sidebar = ({ collapsed = false }) => {
   const sections = [
     {
       title: 'SIMULATORS',
@@ -31,7 +31,7 @@ const Sidebar = () => {
   ];
 
   return (
-    <aside className="sidebar fade-in">
+    <aside className={`sidebar fade-in ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-content">
         {sections.map((section, idx) => (
           <div className="sidebar-section" key={idx}>
@@ -42,8 +42,9 @@ const Sidebar = () => {
                   <NavLink 
                     to={link.path}
                     className={({ isActive }) => (isActive ? 'sidebar-link active' : 'sidebar-link')}
+                    title={link.name}
                   >
-                    {link.name}
+                    <span className="sidebar-link-text">{link.name}</span>
                   </NavLink>
                 </li>
               ))}

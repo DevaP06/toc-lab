@@ -139,7 +139,9 @@ const DfaSimulator = () => {
                />
             </div>
           </div>
+        </div>
 
+        <div className="right-panel">
           <div className="panel simulation-controls">
             <h3 className="panel-header">Execution</h3>
             <div className="form-group">
@@ -150,7 +152,7 @@ const DfaSimulator = () => {
                 placeholder="e.g. 110" 
               />
             </div>
-            
+
             <div className="control-buttons">
               <button className="btn btn-success" onClick={handleRunAll}>
                 <Play size={16} /> Run Complete
@@ -163,9 +165,7 @@ const DfaSimulator = () => {
               </button>
             </div>
           </div>
-        </div>
 
-        <div className="right-panel">
           <div className="panel visualization-panel">
             <h3 className="panel-header">Graph Output</h3>
             <GraphVisualizer automaton={engine} activeNode={activeNode} />

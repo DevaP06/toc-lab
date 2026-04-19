@@ -48,6 +48,29 @@ export class DFA {
       }
     }
 
+    // Ensure total transition function: every state must define every symbol
+    for (const state of this.states) {
+      if (!(state in this.transition)) {
+        return {
+          isValid: false,
+          error: `State '${state}' has no transition defined.`
+        };
+      }
+
+      if (!this.transition[state]) {
+        return { isValid: false, error: `Missing transition object for state '${state}'.` };
+      }
+
+      for (const symbol of this.alphabet) {
+        if (!(symbol in this.transition[state])) {
+          return {
+            isValid: false,
+            error: `Missing transition for state '${state}' with symbol '${symbol}'.`
+          };
+        }
+      }
+    }
+
     return { isValid: true, error: null };
   }
 
@@ -57,27 +80,28 @@ export class DFA {
    * @returns {Object} { accepted, steps }
    */
   simulateStepByStep(inputString) {
+    const validation = this.validate();
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+
     let currentState = this.startState;
     const steps = [];
 
-    // Validations
-    for (let i = 0; i < inputString.length; i++) {
-        const symbol = inputString[i];
-        if (!this.alphabet.has(symbol)) {
-            return {
-                accepted: false,
-                steps: [{ step: i + 1, from: currentState, symbol, to: null, status: 'REJECT (Invalid Symbol)' }]
-            };
-        }
-    }
-
     for (let i = 0; i < inputString.length; i++) {
       const symbol = inputString[i];
-      const nextState = this.transition[currentState]?.[symbol];
-      
+
+      if (!this.alphabet.has(symbol)) {
+        return {
+          accepted: false,
+          steps: [{ step: i + 1, from: currentState, symbol, to: null, status: 'REJECT (Invalid Symbol)' }]
+        };
+      }
+
+      const nextState = this.transition[currentState][symbol];
+
       if (!nextState) {
-        steps.push({ step: i + 1, from: currentState, symbol, to: null, status: 'REJECT (No Transition)' });
-        return { accepted: false, steps };
+        throw new Error('Invalid DFA: missing transition. Run validate() first.');
       }
 
       steps.push({ step: i + 1, from: currentState, symbol, to: nextState, status: 'CONTINUE' });
