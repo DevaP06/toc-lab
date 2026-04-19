@@ -12,6 +12,15 @@ const GlobalCSS = () => (
       --font-mono: 'JetBrains Mono', ui-monospace, monospace;
       --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
       --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+
+      /* Landing-only color system */
+      --bg: #0B0F14;
+      --card: #121923;
+      --primary: #00F5C4;
+      --secondary: #1F3B73;
+      --accent: #7CFFB2;
+      --text: #E6F1FF;
+      --muted: #7A8CA3;
     }
     @keyframes btnShine {
       0%, 100% { transform: translateX(-100%); }
@@ -56,15 +65,15 @@ const TopNav = () => (
     zIndex: 50,
     display: 'flex', alignItems: 'center', gap: 8,
     padding: '8px 10px 8px 18px',
-    background: 'rgba(11,16,32,0.7)', backdropFilter: 'blur(24px) saturate(1.2)',
-    border: '1px solid rgba(129,140,248,0.18)',
+    background: 'rgba(18,25,35,0.82)', backdropFilter: 'blur(24px) saturate(1.2)',
+    border: '1px solid rgba(31,59,115,0.45)',
     borderRadius: 999,
     boxShadow: '0 10px 40px -10px rgba(0,0,0,0.6)',
   }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingRight: 16, borderRight: '1px solid #26304A' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingRight: 16, borderRight: '1px solid rgba(31,59,115,0.55)' }}>
       <div style={{
         width: 22, height: 22, borderRadius: 6,
-        background: 'conic-gradient(from 220deg, #6366F1, #C084FC, #60A5FA, #6366F1)',
+        background: 'conic-gradient(from 220deg, #00F5C4, #7CFFB2, #1F3B73, #00F5C4)',
         animation: 'spinLogo 8s linear infinite',
       }}/>
       <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, letterSpacing: -0.3 }}>TOC Lab</span>
@@ -78,8 +87,8 @@ const TopNav = () => (
       <Link key={label} to={to} style={{
         padding: '8px 14px', borderRadius: 999,
         fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
-        color: active ? '#F9FAFB' : '#A6B0C0',
-        background: active ? 'rgba(99,102,241,0.18)' : 'transparent',
+        color: active ? 'var(--text)' : 'var(--muted)',
+        background: active ? 'rgba(0,245,196,0.14)' : 'transparent',
         transition: 'all 220ms', textDecoration: 'none',
       }}>{label}</Link>
     ))}
@@ -110,7 +119,7 @@ const Home = () => {
              : '';
 
   return (
-    <div className={cls} style={{ background: '#0B1020', minHeight: '100vh', color: '#F9FAFB' }}>
+    <div className={cls} style={{ background: 'var(--bg)', minHeight: '100vh', color: 'var(--text)' }}>
       <GlobalCSS/>
       <TopNav/>
       <Hero auroraVariant={state.auroraVariant} intensity={state.intensity} liveRunning={state.liveRunning}/>

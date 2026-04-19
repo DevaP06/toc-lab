@@ -51,9 +51,9 @@ const MagneticBtn = ({ children, variant = 'primary', onClick, icon, to }) => {
     position: 'relative', overflow: 'hidden', textDecoration: 'none',
   };
   const styles = variant === 'primary'
-    ? { ...base, background: 'linear-gradient(135deg, #6366F1, #4F46E5)', color: '#fff',
-        boxShadow: '0 12px 40px -12px rgba(99,102,241,0.8), inset 0 1px 0 rgba(255,255,255,0.2)' }
-    : { ...base, background: 'rgba(99,102,241,0.06)', color: '#C7D2FE', borderColor: 'rgba(129,140,248,0.35)' };
+    ? { ...base, background: 'linear-gradient(135deg, var(--secondary), var(--primary))', color: '#061019',
+      boxShadow: '0 12px 40px -12px rgba(0,245,196,0.65), inset 0 1px 0 rgba(255,255,255,0.15)' }
+    : { ...base, background: 'rgba(0,245,196,0.08)', color: 'var(--text)', borderColor: 'rgba(31,59,115,0.7)' };
 
   const content = (
     <>
@@ -88,12 +88,12 @@ const FloatBadge = ({ style, label, value, color, mono }) => (
   <div style={{
     position: 'absolute', ...style,
     padding: '8px 12px', borderRadius: 10,
-    background: 'rgba(11,16,32,0.9)', backdropFilter: 'blur(12px)',
+    background: 'rgba(18,25,35,0.92)', backdropFilter: 'blur(12px)',
     border: `1px solid ${color}44`, boxShadow: `0 12px 32px -8px ${color}55`,
     animation: 'floatY 3.5s ease-in-out infinite',
     animationDelay: style.top ? '0.2s' : '0.8s',
   }}>
-    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.6 }}>{label}</div>
+    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.6 }}>{label}</div>
     <div style={{ fontFamily: mono ? 'var(--font-mono)' : 'var(--font-display)', fontSize: 16, fontWeight: 600, color }}>{value}</div>
   </div>
 );
@@ -111,7 +111,7 @@ const Hero = ({ auroraVariant, intensity, liveRunning = true }) => (
   <section style={{
     position: 'relative', minHeight: '92vh',
     display: 'flex', alignItems: 'center',
-    borderBottom: '1px solid #1E2940',
+    borderBottom: '1px solid rgba(31,59,115,0.55)',
     overflow: 'hidden',
   }}>
     <Aurora variant={auroraVariant} intensity={intensity} />
@@ -127,11 +127,11 @@ const Hero = ({ auroraVariant, intensity, liveRunning = true }) => (
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 10,
             padding: '6px 14px 6px 8px', borderRadius: 999,
-            background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(129,140,248,0.25)',
-            color: '#C7D2FE', fontSize: 12, fontFamily: 'var(--font-mono)', letterSpacing: 0.3,
+            background: 'rgba(0,245,196,0.08)', border: '1px solid rgba(31,59,115,0.65)',
+            color: 'var(--text)', fontSize: 12, fontFamily: 'var(--font-mono)', letterSpacing: 0.3,
           }}>
-            <span style={{ width: 20, height: 20, borderRadius: 999, display: 'grid', placeItems: 'center', background: 'rgba(129,140,248,0.2)' }}>
-              <span style={{ width: 6, height: 6, borderRadius: 999, background: '#86EFAC', boxShadow: '0 0 10px #22C55E', animation: 'dotPulse 1.8s infinite' }}/>
+            <span style={{ width: 20, height: 20, borderRadius: 999, display: 'grid', placeItems: 'center', background: 'rgba(0,245,196,0.18)' }}>
+              <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)', animation: 'dotPulse 1.8s infinite' }}/>
             </span>
             v1.2 — live simulation engine
           </div>
@@ -143,22 +143,22 @@ const Hero = ({ auroraVariant, intensity, liveRunning = true }) => (
             fontSize: 'clamp(44px, 6vw, 88px)', lineHeight: 1.05,
             fontWeight: 700, letterSpacing: -2.5, marginTop: 24, marginBottom: 0,
           }}>
-            <span style={{ display: 'block', color: '#F9FAFB' }}>Theory of</span>
+            <span style={{ display: 'block', color: 'var(--text)' }}>Theory of</span>
             <span style={{ display: 'block' }}>
               <span style={{
-                background: 'linear-gradient(110deg, #C7D2FE 0%, #818CF8 35%, #60A5FA 70%, #C084FC 100%)',
+                background: 'linear-gradient(110deg, var(--primary) 0%, var(--accent) 40%, #54d0ff 70%, var(--secondary) 100%)',
                 WebkitBackgroundClip: 'text', backgroundClip: 'text',
                 WebkitTextFillColor: 'transparent', color: 'transparent',
                 backgroundSize: '300% 300%', animation: 'gradientSlide 9s ease-in-out infinite',
                 display: 'inline-block',
               }}>Computation</span>
             </span>
-            <span style={{ display: 'block', color: '#8B95A8', fontStyle: 'italic', fontWeight: 400, paddingBottom: '0.1em' }}>made tangible.</span>
+            <span style={{ display: 'block', color: 'var(--muted)', fontStyle: 'italic', fontWeight: 400, paddingBottom: '0.1em' }}>made tangible.</span>
           </h1>
         </Reveal>
 
         <Reveal delay={180}>
-          <p style={{ marginTop: 28, maxWidth: 520, fontSize: 18, lineHeight: 1.6, color: '#A6B0C0' }}>
+          <p style={{ marginTop: 28, maxWidth: 520, fontSize: 18, lineHeight: 1.6, color: 'var(--muted)' }}>
             Build DFAs, NFAs, PDAs and Turing machines visually. Trace executions step by step.
             Convert, minimize, and compare — all in a single fluid workspace.
           </p>
@@ -180,9 +180,9 @@ const Hero = ({ auroraVariant, intensity, liveRunning = true }) => (
             ].map((s) => (
               <div key={s.v}>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 600, letterSpacing: -1,
-                              background: 'linear-gradient(180deg, #F9FAFB, #A6B0C0)', WebkitBackgroundClip: 'text',
+                              background: 'linear-gradient(180deg, var(--text), var(--muted))', WebkitBackgroundClip: 'text',
                               backgroundClip: 'text', color: 'transparent' }}>{s.k}</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B7280', letterSpacing: 0.6,
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', letterSpacing: 0.6,
                               textTransform: 'uppercase', marginTop: 4 }}>{s.v}</div>
               </div>
             ))}
@@ -193,9 +193,9 @@ const Hero = ({ auroraVariant, intensity, liveRunning = true }) => (
       <Reveal delay={200}>
         <div style={{
           position: 'relative',
-          background: 'linear-gradient(180deg, rgba(20,27,45,0.7), rgba(15,23,42,0.6))',
+          background: 'linear-gradient(180deg, rgba(18,25,35,0.85), rgba(11,15,20,0.78))',
           backdropFilter: 'blur(24px) saturate(1.2)',
-          border: '1px solid rgba(129,140,248,0.18)',
+          border: '1px solid rgba(31,59,115,0.6)',
           borderRadius: 22, padding: 22,
           boxShadow: '0 40px 80px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)',
         }}>
@@ -204,35 +204,35 @@ const Hero = ({ auroraVariant, intensity, liveRunning = true }) => (
               <div style={{ display: 'flex', gap: 6 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 999, background: '#EF4444' }}/>
                 <span style={{ width: 10, height: 10, borderRadius: 999, background: '#F59E0B' }}/>
-                <span style={{ width: 10, height: 10, borderRadius: 999, background: '#22C55E' }}/>
+                <span style={{ width: 10, height: 10, borderRadius: 999, background: 'var(--accent)' }}/>
               </div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#6B7280', marginLeft: 8 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>
                 dfa_simulator.toc — L = (a|b)*ab
               </span>
             </div>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#86EFAC',
-                           padding: '3px 8px', borderRadius: 5, background: 'rgba(34,197,94,0.1)',
-                           border: '1px solid rgba(34,197,94,0.3)' }}>● running</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--accent)',
+                           padding: '3px 8px', borderRadius: 5, background: 'rgba(124,255,178,0.1)',
+                           border: '1px solid rgba(124,255,178,0.35)' }}>● running</span>
           </div>
 
           <div style={{ height: 340, position: 'relative' }}>
             <LiveAutomaton running={liveRunning} />
           </div>
 
-          <FloatBadge style={{ top: -14, right: 28 }} label="step" value="6 / 7" color="#F59E0B" />
-          <FloatBadge style={{ bottom: 92, left: -18 }} label="state" value="q2" color="#6366F1" mono />
+          <FloatBadge style={{ top: -14, right: 28 }} label="step" value="6 / 7" color="#00F5C4" />
+          <FloatBadge style={{ bottom: 92, left: -18 }} label="state" value="q2" color="#7CFFB2" mono />
         </div>
       </Reveal>
     </div>
 
     <div style={{
       position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-      color: '#6B7280', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: 1,
+      color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: 1,
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
       animation: 'floatY 2.4s ease-in-out infinite',
     }}>
       <span>SCROLL</span>
-      <span style={{ width: 1, height: 24, background: 'linear-gradient(180deg, #6B7280, transparent)' }}/>
+      <span style={{ width: 1, height: 24, background: 'linear-gradient(180deg, var(--muted), transparent)' }}/>
     </div>
   </section>
 );
