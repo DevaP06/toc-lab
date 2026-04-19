@@ -1,20 +1,22 @@
-import { DFA } from './dfa';
+import { DFA } from './dfa.js';
 
 /**
  * Minimizes a DFA using the Table-Filling (Myhill-Nerode) algorithm.
  * @param {DFA} dfa - The original DFA
+ * @param {{removeDead?: boolean}} options - Minimization options
  * @returns {Object} - Resulting DFA, equivalence classes, and steps
  */
-export function minimizeDFA(dfa) {
+export function minimizeDFA(dfa, options = { removeDead: false }) {
   const steps = [];
 
   // 1. Remove unreachable states
   const reachable = new Set([dfa.startState]);
   const queue = [dfa.startState];
+  const alphabet = Array.from(dfa.alphabet);
   
   while (queue.length > 0) {
     const s = queue.shift();
-    for (const a of dfa.alphabet) {
+    for (const a of alphabet) {
       if (dfa.transition[s] && dfa.transition[s][a]) {
         const target = dfa.transition[s][a];
         if (!reachable.has(target)) {
@@ -28,168 +30,169 @@ export function minimizeDFA(dfa) {
   const states = Array.from(reachable);
   steps.push(`1. Removed unreachable states. Reachable states: {${states.join(', ')}}`);
 
-  // 2. Initialize Distinguishability Table (Pairs)
-  // Use a virtual DEAD state to represent missing transitions (incomplete DFA support).
-  // DEAD is a non-accepting sink — distinguishable from any accept state.
-  const DEAD = '\x00DEAD\x00';
-  const distinguishable = new Set(); // store pairs as "s1,s2" where s1 < s2
-  const getPairKey = (s1, s2) => s1 < s2 ? `${s1},${s2}` : `${s2},${s1}`;
+  // 2. Ensure complete DFA transitions with explicit DEAD sink.
+  const transitions = {};
+  for (const state of states) {
+    transitions[state] = { ...(dfa.transition[state] || {}) };
+  }
 
-  // Check if any transition is missing (DFA is incomplete)
-  const needsDead = states.some(s =>
-    Array.from(dfa.alphabet).some(a => !dfa.transition[s]?.[a])
-  );
-  // allStates includes DEAD only if the DFA is incomplete, so (state, DEAD) pairs exist
-  const allStates = needsDead ? [...states, DEAD] : [...states];
-
-  // Helper: resolve transition target, falling back to DEAD for missing transitions
-  const delta = (s, a) => {
-    if (s === DEAD) return DEAD;
-    return dfa.transition[s]?.[a] ?? DEAD;
-  };
-
-  // Initially mark pairs where one is accept and one is reject
-  // DEAD is non-accepting
-  for (let i = 0; i < allStates.length; i++) {
-    for (let j = i + 1; j < allStates.length; j++) {
-      const p = allStates[i];
-      const q = allStates[j];
-      const pAccept = p !== DEAD && dfa.acceptStates.has(p);
-      const qAccept = q !== DEAD && dfa.acceptStates.has(q);
-
-      if (pAccept !== qAccept) {
-        distinguishable.add(getPairKey(p, q));
+  let needsDead = false;
+  for (const state of states) {
+    for (const symbol of alphabet) {
+      if (!transitions[state]?.[symbol]) {
+        transitions[state][symbol] = 'DEAD';
+        needsDead = true;
       }
     }
   }
 
-  steps.push(`2. Marked all ({Accept}, {Non-Accept}) pairs as distinguishable.`);
+  const workingStates = [...states];
+  if (needsDead) {
+    workingStates.push('DEAD');
+    transitions.DEAD = transitions.DEAD || {};
+    for (const symbol of alphabet) {
+      transitions.DEAD[symbol] = 'DEAD';
+    }
+    steps.push('2. Completed DFA transitions by adding DEAD sink state.');
+  } else {
+    steps.push('2. DFA transition table already complete (no DEAD sink needed).');
+  }
 
-  // 3. Mark transitions iteratively
+  const acceptSet = new Set(
+    Array.from(dfa.acceptStates).filter(s => workingStates.includes(s))
+  );
+  const nonAcceptSet = new Set(
+    workingStates.filter(s => !acceptSet.has(s))
+  );
+
+  // 3. Initialize partitions.
+  let partitions = [];
+  if (acceptSet.size > 0) partitions.push(acceptSet);
+  if (nonAcceptSet.size > 0) partitions.push(nonAcceptSet);
+  steps.push('3. Initialized partitions into accepting and non-accepting groups.');
+
+  // 4. Refine partitions iteratively.
   let changed = true;
   let iteration = 1;
+
+  const findPartitionIndex = (state, currentPartitions) =>
+    currentPartitions.findIndex(group => group.has(state));
+
   while (changed) {
     changed = false;
-    for (let i = 0; i < allStates.length; i++) {
-      for (let j = i + 1; j < allStates.length; j++) {
-        const p = allStates[i];
-        const q = allStates[j];
-        if (distinguishable.has(getPairKey(p, q))) continue;
+    const newPartitions = [];
 
-        for (const a of dfa.alphabet) {
-          const tp = delta(p, a);
-          const tq = delta(q, a);
+    for (const group of partitions) {
+      const subgroups = {};
 
-          // If targets differ, check if they are distinguishable
-          if (tp !== tq && distinguishable.has(getPairKey(tp, tq))) {
-            distinguishable.add(getPairKey(p, q));
-            changed = true;
-            const tpLabel = tp === DEAD ? 'DEAD' : tp;
-            const tqLabel = tq === DEAD ? 'DEAD' : tq;
-            steps.push(`   Iteration ${iteration}: Marked (${p}, ${q}) because δ(${p}, ${a})=${tpLabel} and δ(${q}, ${a})=${tqLabel} are distinguishable.`);
-            break; // Move to next pair
+      for (const state of group) {
+        const signature = alphabet.map(symbol => {
+          const target = transitions[state][symbol];
+          return findPartitionIndex(target, partitions);
+        }).join('|');
+
+        if (!subgroups[signature]) subgroups[signature] = [];
+        subgroups[signature].push(state);
+      }
+
+      const values = Object.values(subgroups);
+      if (values.length > 1) changed = true;
+
+      for (const statesInSubgroup of values) {
+        newPartitions.push(new Set(statesInSubgroup));
+      }
+    }
+
+    partitions = newPartitions;
+    steps.push(`4.${iteration}. Partition refinement iteration ${iteration} produced ${partitions.length} groups.`);
+    iteration += 1;
+  }
+
+  // 5. Build mapping from old states to minimized states.
+  const stateMap = {};
+  partitions.forEach((group, index) => {
+    const name = `S${index}`;
+    for (const state of group) {
+      stateMap[state] = name;
+    }
+  });
+
+  // 6. Build minimized transitions.
+  const newTransitions = {};
+  for (const state of workingStates) {
+    const newState = stateMap[state];
+    if (!newTransitions[newState]) newTransitions[newState] = {};
+
+    for (const symbol of alphabet) {
+      const target = transitions[state][symbol];
+      newTransitions[newState][symbol] = stateMap[target];
+    }
+  }
+
+  // 7. Derive start/accept/final state sets and remove duplicates.
+  const newStart = stateMap[dfa.startState];
+  const newAcceptStates = new Set(
+    Array.from(dfa.acceptStates).map(s => stateMap[s]).filter(Boolean)
+  );
+  let finalStates = [...new Set(Object.values(stateMap))];
+
+  if (options.removeDead) {
+    const deadState = finalStates.find((state) => {
+      const row = newTransitions[state] || {};
+      const allSelfLoops = alphabet.length > 0 && alphabet.every(symbol => row[symbol] === state);
+      const notAccept = !newAcceptStates.has(state);
+      return allSelfLoops && notAccept;
+    });
+
+    if (deadState && deadState !== newStart) {
+      const filteredStates = finalStates.filter(s => s !== deadState);
+      const filteredTransitions = {};
+
+      for (const state of filteredStates) {
+        filteredTransitions[state] = {};
+        for (const symbol of alphabet) {
+          const target = newTransitions[state]?.[symbol];
+          if (target && target !== deadState) {
+            filteredTransitions[state][symbol] = target;
           }
         }
       }
-    }
-    iteration++;
-  }
 
-  steps.push(`3. Table filling complete after ${iteration - 1} iterations.`);
+      finalStates = filteredStates;
+      Object.keys(newTransitions).forEach(k => delete newTransitions[k]);
+      Object.assign(newTransitions, filteredTransitions);
 
-  // 4. Group equivalent states (Find connected components of unmarked pairs)
-  // Only group original reachable states — DEAD is not a real state in the output DFA
-  const equivalentPairs = [];
-  for (let i = 0; i < states.length; i++) {
-    for (let j = i + 1; j < states.length; j++) {
-      if (!distinguishable.has(getPairKey(states[i], states[j]))) {
-        equivalentPairs.push([states[i], states[j]]);
-      }
+      steps.push(`6. Removed DEAD sink state '${deadState}' for simplified view.`);
     }
   }
 
-  // Union-Find or simple clustering for equivalence classes
-  const classes = [];
-  const stateClassMap = {};
-
-  states.forEach(s => {
-    if (!stateClassMap[s]) {
-      const cls = new Set([s]);
-      classes.push(cls);
-      stateClassMap[s] = cls;
-    }
-  });
-
-  for (const [p, q] of equivalentPairs) {
-     const clsP = stateClassMap[p];
-     const clsQ = stateClassMap[q];
-     if (clsP !== clsQ) {
-        // Merge clsQ into clsP
-        for (const sq of clsQ) {
-           clsP.add(sq);
-           stateClassMap[sq] = clsP;
-        }
-        // Remove old clsQ
-        classes.splice(classes.indexOf(clsQ), 1);
-     }
-  }
-
-  if (equivalentPairs.length > 0) {
-      steps.push(`4. Found indistinguishable states. Merged into equivalence classes:`);
-      classes.forEach(cls => {
-         if (cls.size > 1) {
-             steps.push(`   - {${Array.from(cls).join(', ')}}`);
-         }
-      });
-  } else {
-      steps.push(`4. No equivalent states found. The DFA is already minimal.`);
-  }
-
-  // 5. Build new minimal DFA
-  const formatClassName = (clsSet) => Array.from(clsSet).sort().join('_');
-  
-  const minStates = classes.map(formatClassName);
-  let minStart = '';
-  const minAccept = new Set();
-  const minTrans = {};
-
-  classes.forEach(cls => {
-     const name = formatClassName(cls);
-     minTrans[name] = {};
-     
-     // Use a representative to build transitions
-     const rep = Array.from(cls)[0];
-     
-     if (cls.has(dfa.startState)) minStart = name;
-     if (dfa.acceptStates.has(rep)) minAccept.add(name);
-
-     for (const a of dfa.alphabet) {
-        if (dfa.transition[rep] && dfa.transition[rep][a]) {
-            const target = dfa.transition[rep][a];
-            const targetCls = stateClassMap[target];
-            if (targetCls) {
-                minTrans[name][a] = formatClassName(targetCls);
-            }
-        }
-     }
-  });
+  console.log('Minimized DFA States:', finalStates);
+  console.log('Transitions:', newTransitions);
 
   const transitionLines = [];
-  for (const from in minTrans) {
-    for (const a in minTrans[from]) {
-      transitionLines.push(`${from}, ${a}, ${minTrans[from][a]}`);
+  for (const from in newTransitions) {
+    for (const symbol in newTransitions[from]) {
+      transitionLines.push(`${from}, ${symbol}, ${newTransitions[from][symbol]}`);
     }
   }
 
   const minDfaDef = {
-     states: minStates.join(', '),
-     alphabet: Array.from(dfa.alphabet).join(', '),
-     startState: minStart,
-     acceptStates: Array.from(minAccept).join(', '),
-     transitions: transitionLines.join('\n')
+    states: finalStates.join(', '),
+    alphabet: alphabet.join(', '),
+    startState: newStart,
+    acceptStates: Array.from(newAcceptStates).join(', '),
+    transitions: transitionLines.join('\n')
   };
 
-  const minDfaInstance = new DFA(minStates, Array.from(dfa.alphabet), minTrans, minStart, Array.from(minAccept));
+  const minDfaInstance = new DFA(
+    finalStates,
+    alphabet,
+    newTransitions,
+    newStart,
+    Array.from(newAcceptStates)
+  );
+
+  steps.push(`5. Built minimized DFA with ${finalStates.length} states.`);
 
   return { minimizedDefinition: minDfaDef, minimizedInstance: minDfaInstance, steps };
 }

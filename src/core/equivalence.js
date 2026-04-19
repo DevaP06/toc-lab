@@ -1,146 +1,194 @@
-import { DFA } from './dfa';
-
 /**
- * Checks if two DFAs are computationally equivalent using the Table-Filling algorithm.
+ * Checks if two DFAs are equivalent by BFS on the product automaton.
+ * Supports different alphabets by completing each DFA over the union alphabet.
  * @param {DFA} dfa1 - First DFA
  * @param {DFA} dfa2 - Second DFA
- * @returns {Object} { isEquivalent, counterExample, steps }
+ * @returns {Object} Detailed equivalence result with witness when not equivalent
  */
 export function checkEquivalence(dfa1, dfa2) {
   const steps = [];
+  const alphabet = Array.from(new Set([...dfa1.alphabet, ...dfa2.alphabet])).sort();
 
-  // Check alphabet
-  const alpha1 = Array.from(dfa1.alphabet).sort().join(',');
-  const alpha2 = Array.from(dfa2.alphabet).sort().join(',');
-  
-  if (alpha1 !== alpha2) {
-      steps.push(`Alphabets do not match. DFA1: {${alpha1}}, DFA2: {${alpha2}}`);
-      return { isEquivalent: false, reason: "Alphabets differ", steps };
+  steps.push(`1. Using union alphabet: {${alphabet.join(', ')}}`);
+
+  const normalizedA = completeDfaForAlphabet(dfa1, alphabet, 'A', steps);
+  const normalizedB = completeDfaForAlphabet(dfa2, alphabet, 'B', steps);
+
+  const startPair = { a: normalizedA.startState, b: normalizedB.startState };
+  const startKey = pairKey(startPair.a, startPair.b);
+
+  const queue = [startPair];
+  const visited = new Set([startKey]);
+  const parent = new Map();
+  const pairInfo = new Map([[startKey, startPair]]);
+  const exploredPairs = [];
+
+  steps.push(`2. Running BFS from (${displayA(startPair.a)}, ${displayB(startPair.b)}) in product automaton.`);
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    const currentKey = pairKey(current.a, current.b);
+
+    const aAccept = normalizedA.acceptStates.has(current.a);
+    const bAccept = normalizedB.acceptStates.has(current.b);
+
+    if (aAccept !== bAccept) {
+      const counterExample = reconstructCounterexample(currentKey, parent);
+      const pairTrace = reconstructPairTrace(currentKey, parent, pairInfo);
+      const reason = `Mismatch at (${displayA(current.a)}, ${displayB(current.b)})`;
+
+      steps.push(`3. Found acceptance mismatch at (${displayA(current.a)}, ${displayB(current.b)}).`);
+      steps.push(`4. Shortest counterexample by BFS: "${counterExample}"`);
+
+      return {
+        isEquivalent: false,
+        counterExample,
+        reason,
+        mismatchPair: { a: displayA(current.a), b: displayB(current.b) },
+        alphabet,
+        exploredPairs,
+        pairTrace,
+        steps
+      };
+    }
+
+    for (const symbol of alphabet) {
+      const nextA = normalizedA.transition[current.a][symbol];
+      const nextB = normalizedB.transition[current.b][symbol];
+      const nextKey = pairKey(nextA, nextB);
+
+      exploredPairs.push({
+        from: `(${displayA(current.a)}, ${displayB(current.b)})`,
+        symbol,
+        to: `(${displayA(nextA)}, ${displayB(nextB)})`
+      });
+
+      if (!visited.has(nextKey)) {
+        visited.add(nextKey);
+        queue.push({ a: nextA, b: nextB });
+        parent.set(nextKey, { prev: currentKey, symbol });
+        pairInfo.set(nextKey, { a: nextA, b: nextB });
+      }
+    }
   }
 
-  // Combine DFAs into a disjoint union
-  const combinedStates = [];
-  const combinedAccept = new Set();
+  steps.push(`3. BFS completed with ${visited.size} reachable state pairs and no acceptance mismatch.`);
+  steps.push('4. DFA A and DFA B are equivalent.');
+
+  return {
+    isEquivalent: true,
+    counterExample: null,
+    reason: 'No reachable mismatch pair found.',
+    mismatchPair: null,
+    alphabet,
+    exploredPairs,
+    pairTrace: [],
+    steps
+  };
+}
+
+function pairKey(a, b) {
+  return `${a}||${b}`;
+}
+
+function displayA(state) {
+  return `A_${state}`;
+}
+
+function displayB(state) {
+  return `B_${state}`;
+}
+
+function reconstructCounterexample(endKey, parent) {
+  const symbols = [];
+  let current = endKey;
+
+  while (parent.has(current)) {
+    const edge = parent.get(current);
+    symbols.push(edge.symbol);
+    current = edge.prev;
+  }
+
+  symbols.reverse();
+  return symbols.join('');
+}
+
+function reconstructPairTrace(endKey, parent, pairInfo) {
+  const edges = [];
+  let current = endKey;
+
+  while (parent.has(current)) {
+    const edge = parent.get(current);
+    edges.push({ key: current, symbol: edge.symbol });
+    current = edge.prev;
+  }
+
+  edges.reverse();
+
+  const trace = [];
+  let fromKey = current;
+  const fromPair = pairInfo.get(fromKey);
+  if (fromPair) {
+    trace.push({ pair: `(${displayA(fromPair.a)}, ${displayB(fromPair.b)})`, symbol: null });
+  }
+
+  for (const edge of edges) {
+    const toPair = pairInfo.get(edge.key);
+    if (!toPair) continue;
+    trace.push({
+      pair: `(${displayA(toPair.a)}, ${displayB(toPair.b)})`,
+      symbol: edge.symbol
+    });
+  }
+
+  return trace;
+}
+
+function completeDfaForAlphabet(dfa, alphabet, label, steps) {
+  const states = new Set(dfa.states);
+  const acceptStates = new Set(dfa.acceptStates);
   const transition = {};
 
-  const prefix1 = 'A_';
-  const prefix2 = 'B_';
-
-  for (const s of dfa1.states) {
-      const name = prefix1 + s;
-      combinedStates.push(name);
-      if (dfa1.acceptStates.has(s)) combinedAccept.add(name);
-      
-      transition[name] = {};
-      for (const a of dfa1.alphabet) {
-          if (dfa1.transition[s]?.[a]) {
-              transition[name][a] = prefix1 + dfa1.transition[s][a];
-          }
-      }
+  for (const state of states) {
+    transition[state] = { ...(dfa.transition[state] || {}) };
   }
 
-  for (const s of dfa2.states) {
-      const name = prefix2 + s;
-      combinedStates.push(name);
-      if (dfa2.acceptStates.has(s)) combinedAccept.add(name);
-      
-      transition[name] = {};
-      for (const a of dfa2.alphabet) {
-          if (dfa2.transition[s]?.[a]) {
-              transition[name][a] = prefix2 + dfa2.transition[s][a];
-          }
-      }
+  let deadState = 'DEAD';
+  let suffix = 1;
+  while (states.has(deadState)) {
+    deadState = `DEAD_${suffix}`;
+    suffix += 1;
   }
 
-  steps.push(`1. Created disjoint union of DFA A and DFA B states.`);
+  let addedDead = false;
 
-  // Use a virtual DEAD state to represent missing transitions in either DFA.
-  // DEAD is non-accepting — distinguishable from any accept state.
-  const DEAD = '\x00DEAD\x00';
-  const distinguishable = new Set();
-  const getPairKey = (s1, s2) => s1 < s2 ? `${s1},${s2}` : `${s2},${s1}`;
+  for (const state of Array.from(states)) {
+    if (!transition[state]) transition[state] = {};
 
-  // Check if either DFA has incomplete transitions
-  const needsDead =
-    [...dfa1.states].some(s => Array.from(dfa1.alphabet).some(a => !dfa1.transition[s]?.[a])) ||
-    [...dfa2.states].some(s => Array.from(dfa2.alphabet).some(a => !dfa2.transition[s]?.[a]));
-
-  const allCombinedStates = needsDead ? [...combinedStates, DEAD] : [...combinedStates];
-
-  // Helper: resolve transition, falling back to DEAD for missing entries
-  const delta = (s, a) => {
-    if (s === DEAD) return DEAD;
-    return transition[s]?.[a] ?? DEAD;
-  };
-
-  // Initially mark pairs where one is accept and one is reject
-  // DEAD is non-accepting
-  for (let i = 0; i < allCombinedStates.length; i++) {
-    for (let j = i + 1; j < allCombinedStates.length; j++) {
-      const p = allCombinedStates[i];
-      const q = allCombinedStates[j];
-      const pAccept = p !== DEAD && combinedAccept.has(p);
-      const qAccept = q !== DEAD && combinedAccept.has(q);
-
-      if (pAccept !== qAccept) {
-        distinguishable.add(getPairKey(p, q));
+    for (const symbol of alphabet) {
+      if (!(symbol in transition[state])) {
+        transition[state][symbol] = deadState;
+        addedDead = true;
       }
     }
   }
 
-  steps.push(`2. Initialized Table-Filling. Marked all ({Accept}, {Reject}) pairs.`);
-
-  let changed = true;
-  let iteration = 1;
-  const alphabet = Array.from(dfa1.alphabet);
-
-  // We only really care if (start1, start2) gets marked.
-  const start1 = prefix1 + dfa1.startState;
-  const start2 = prefix2 + dfa2.startState;
-
-  const targetPair = getPairKey(start1, start2);
-
-  while (changed) {
-    changed = false;
-    for (let i = 0; i < allCombinedStates.length; i++) {
-      for (let j = i + 1; j < allCombinedStates.length; j++) {
-        const p = allCombinedStates[i];
-        const q = allCombinedStates[j];
-        if (distinguishable.has(getPairKey(p, q))) continue;
-
-        for (const a of alphabet) {
-          const tp = delta(p, a);
-          const tq = delta(q, a);
-
-          // If targets differ, check if they are distinguishable
-          if (tp !== tq && distinguishable.has(getPairKey(tp, tq))) {
-            distinguishable.add(getPairKey(p, q));
-            changed = true;
-
-            // If the start states are just proven distinguishable, early exit!
-            if (getPairKey(p, q) === targetPair) {
-              steps.push(`-> Found distinguishable transition from Start States on symbol '${a}'!`);
-              steps.push(`3. Start states (${start1}, ${start2}) are distinguishable. NOT Equivalent.`);
-              return { isEquivalent: false, reason: "Start states distinguishable", steps };
-            }
-            break;
-          }
-        }
-      }
+  if (addedDead) {
+    states.add(deadState);
+    transition[deadState] = {};
+    for (const symbol of alphabet) {
+      transition[deadState][symbol] = deadState;
     }
-    iteration++;
-  }
-
-  const isEquiv = !distinguishable.has(targetPair);
-  steps.push(`3. Table filling stabilized after ${iteration - 1} iterations.`);
-  
-  if (isEquiv) {
-      steps.push(`-> The start states (${start1}, ${start2}) are indistinguishable in the union DFA.`);
-      steps.push(`-> Therefore, DFA A and DFA B accept the exact same language.`);
+    steps.push(`- DFA ${label}: added DEAD state '${deadState}' and completed missing transitions.`);
   } else {
-      steps.push(`-> The start states (${start1}, ${start2}) are distinguishable in the union DFA.`);
-      steps.push(`-> Therefore, DFA A and DFA B are NOT equivalent.`);
+    steps.push(`- DFA ${label}: already complete for union alphabet.`);
   }
 
-  return { isEquivalent: isEquiv, steps };
+  return {
+    states,
+    acceptStates,
+    transition,
+    startState: dfa.startState,
+    deadState: addedDead ? deadState : null
+  };
 }

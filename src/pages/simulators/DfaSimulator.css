@@ -11,14 +11,14 @@
   margin-top: 40px;
   margin-bottom: 32px;
   padding: 0 32px;
-  border-bottom: 1px solid #374151;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 24px;
 }
 
 .header-section h2 {
   font-size: 32px;
   font-weight: 700;
-  color: #f9fafb;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -113,7 +113,7 @@ textarea {
 }
 
 .trace-box {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(11, 15, 20, 0.6);
   border-radius: 12px;
   padding: 12px;
   font-family: var(--font-mono);
@@ -125,7 +125,7 @@ textarea {
   border: 1px solid rgba(255, 255, 255, 0.08);
   min-width: 0;
   scrollbar-width: thin;
-  scrollbar-color: #475569 #020617;
+  scrollbar-color: var(--muted) var(--bg);
 }
 
 .trace-section {
@@ -136,13 +136,13 @@ textarea {
   font-family: var(--font-mono);
   font-size: 14px;
   line-height: 1.6;
-  background: #020617;
+  background: var(--bg);
   border-radius: 8px;
   padding: 10px;
   max-height: 180px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #475569 #020617;
+  scrollbar-color: var(--muted) var(--bg);
 }
 
 .trace-box::-webkit-scrollbar,
@@ -153,19 +153,19 @@ textarea {
 
 .trace-box::-webkit-scrollbar-track,
 .trace-content::-webkit-scrollbar-track {
-  background: #020617;
+  background: var(--bg);
 }
 
 .trace-box::-webkit-scrollbar-thumb,
 .trace-content::-webkit-scrollbar-thumb {
-  background: #475569;
+  background: var(--muted);
   border-radius: 999px;
-  border: 2px solid #020617;
+  border: 2px solid var(--bg);
 }
 
 .trace-box::-webkit-scrollbar-thumb:hover,
 .trace-content::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+  background: var(--text-secondary);
 }
 
 .trace-empty {
@@ -197,9 +197,9 @@ textarea {
   margin-left: 10px;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(12, 74, 110, 0.35);
-  border: 1px solid rgba(103, 232, 249, 0.45);
-  color: #A5F3FC;
+  background: rgba(31, 59, 115, 0.35);
+  border: 1px solid rgba(124, 255, 178, 0.45);
+  color: var(--accent);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.2px;
@@ -208,12 +208,12 @@ textarea {
 }
 
 .trace-line.current {
-  background-color: rgba(99, 102, 241, 0.2);
+  background-color: rgba(0, 245, 196, 0.18);
   border-left: 3px solid var(--accent-primary);
 }
 
 .trace-line.success {
-  background-color: rgba(34, 197, 94, 0.1);
+  background-color: rgba(124, 255, 178, 0.1);
   color: var(--accent-secondary);
   font-weight: bold;
 }
@@ -265,8 +265,8 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: rgba(17, 24, 39, 0.9);
-  border: 1px solid rgba(75, 85, 99, 0.85);
+  background: rgba(18, 25, 35, 0.9);
+  border: 1px solid rgba(31, 59, 115, 0.85);
   border-radius: 10px;
   padding: 10px;
   backdrop-filter: blur(8px);
@@ -280,12 +280,12 @@ textarea {
 
 .overlay-input-group label {
   font-size: 12px;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
 .overlay-input-group input {
-  background-color: rgba(15, 23, 42, 0.95);
+  background-color: rgba(11, 15, 20, 0.95);
 }
 
 .log-panel {
@@ -298,8 +298,8 @@ textarea {
 }
 
 .graph-container {
-  background-color: #111827;
-  border: 1px solid #374151;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px;
   min-height: 400px;
@@ -316,7 +316,7 @@ textarea {
 }
 
 .graph-container:hover {
-  border-color: rgba(99, 102, 241, 0.4);
+  border-color: rgba(0, 245, 196, 0.4);
 }
 
 .graph-container .react-flow {
@@ -337,7 +337,7 @@ textarea {
 }
 
 .graph-container:hover .react-flow__renderer {
-  filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.3));
+  filter: drop-shadow(0 4px 12px rgba(0, 245, 196, 0.24));
 }
 
 @media (max-width: 1280px) {

@@ -29,8 +29,7 @@ const Sidebar = ({ collapsed = false }) => {
       title: 'CONVERTERS',
       links: [
         { badge: 'N2D', label: 'NFA to DFA', path: '/converters/nfa-to-dfa' },
-        { badge: 'R2N', label: 'Regex to NFA', path: '/converters/regex-to-nfa' },
-        { badge: 'F2R', label: 'FA to Regex', path: '/converters/fa-to-regex' }
+        { badge: 'R2N', label: 'Regex to NFA', path: '/converters/regex-to-nfa' }
       ]
     },
     {

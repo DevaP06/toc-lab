@@ -68,7 +68,7 @@
   margin-top: 14px;
   padding: 14px 16px;
   border-radius: 10px;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(11, 15, 20, 0.45);
   border: 1px solid var(--border);
 }
 
@@ -292,15 +292,15 @@
 
 /* States */
 .tape-consumed {
-  background: rgba(34, 197, 94, 0.08);
-  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(124, 255, 178, 0.08);
+  border-color: rgba(124, 255, 178, 0.3);
 }
 .tape-consumed .tape-char { color: var(--accent-secondary); opacity: 0.6; }
 
 .tape-current {
-  background: rgba(99, 102, 241, 0.15);
+  background: rgba(0, 245, 196, 0.15);
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15), 0 0 12px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 3px rgba(0, 245, 196, 0.15), 0 0 12px rgba(0, 245, 196, 0.2);
   transform: translateY(-2px);
 }
 .tape-current .tape-char { color: var(--accent-primary); }
@@ -370,15 +370,15 @@
 .sn-active {
   border-color: var(--accent-primary);
   color: var(--accent-primary);
-  background: rgba(99, 102, 241, 0.1);
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+  background: rgba(0, 245, 196, 0.1);
+  box-shadow: 0 0 20px rgba(0, 245, 196, 0.2);
 }
 
 .sn-accept {
   border-color: var(--accent-secondary);
   color: var(--accent-secondary);
-  background: rgba(34, 197, 94, 0.1);
-  box-shadow: 0 0 20px rgba(34, 197, 94, 0.25);
+  background: rgba(124, 255, 178, 0.1);
+  box-shadow: 0 0 20px rgba(124, 255, 178, 0.25);
   animation: acceptPulse 1s ease infinite alternate;
 }
 
@@ -389,8 +389,8 @@
 }
 
 @keyframes acceptPulse {
-  from { box-shadow: 0 0 16px rgba(34, 197, 94, 0.2); }
-  to   { box-shadow: 0 0 28px rgba(34, 197, 94, 0.45); }
+  from { box-shadow: 0 0 16px rgba(124, 255, 178, 0.2); }
+  to   { box-shadow: 0 0 28px rgba(124, 255, 178, 0.45); }
 }
 
 .state-status-tag {
@@ -402,8 +402,8 @@
   border-radius: 20px;
 }
 
-.tag-active  { background: rgba(99, 102, 241, 0.15); color: var(--accent-primary); }
-.tag-accept  { background: rgba(34, 197, 94, 0.15);  color: var(--accent-secondary); }
+.tag-active  { background: rgba(0, 245, 196, 0.15); color: var(--accent-primary); }
+.tag-accept  { background: rgba(124, 255, 178, 0.15);  color: var(--accent-secondary); }
 .tag-reject  { background: rgba(239, 68, 68, 0.12);  color: var(--error); }
 
 .parallel-badge {
@@ -431,7 +431,7 @@
   align-items: stretch;
   min-height: 190px;
   padding: 10px 8px 5px;
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(11, 15, 20, 0.5);
   border-radius: 8px;
   border: 1px dashed var(--border);
   overflow: visible;
@@ -450,9 +450,9 @@
 }
 
 .sv-top {
-  background: #7c3aed; /* darker purple for top */
+  background: var(--secondary);
   border-color: rgba(255, 255, 255, 0.25);
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+  box-shadow: 0 2px 8px rgba(31, 59, 115, 0.35);
   transform: scale(1.01);
 }
 
@@ -522,17 +522,17 @@
   flex-wrap: wrap;
 }
 
-.log-row:hover { background: rgba(99, 102, 241, 0.05); }
+.log-row:hover { background: rgba(0, 245, 196, 0.06); }
 
 .log-current {
-  background: rgba(99, 102, 241, 0.12);
-  border-color: rgba(99, 102, 241, 0.35);
+  background: rgba(0, 245, 196, 0.12);
+  border-color: rgba(0, 245, 196, 0.35);
   color: var(--text-primary);
 }
 
 .log-accept {
-  background: rgba(34, 197, 94, 0.08);
-  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(124, 255, 178, 0.08);
+  border-color: rgba(124, 255, 178, 0.3);
   color: var(--accent-secondary);
   font-weight: 600;
 }
@@ -554,7 +554,7 @@
   font-size: 12px;
   font-weight: 700;
   color: var(--accent-primary);
-  background: rgba(99, 102, 241, 0.12);
+  background: rgba(0, 245, 196, 0.12);
   padding: 1px 7px;
   border-radius: 4px;
   white-space: nowrap;
@@ -569,7 +569,7 @@
 .log-stack-snap {
   font-size: 11px;
   color: var(--text-muted);
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(11, 15, 20, 0.6);
   padding: 2px 7px;
   border-radius: 4px;
   white-space: nowrap;
@@ -578,8 +578,8 @@
 .log-paths-badge {
   font-size: 10px;
   color: var(--accent-highlight);
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: rgba(31, 59, 115, 0.14);
+  border: 1px solid rgba(31, 59, 115, 0.35);
   border-radius: 10px;
   padding: 1px 6px;
 }
@@ -596,8 +596,8 @@
 }
 
 .banner-accept {
-  background: rgba(34, 197, 94, 0.1);
-  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(124, 255, 178, 0.1);
+  border-color: rgba(124, 255, 178, 0.35);
 }
 
 .banner-reject {
@@ -629,8 +629,8 @@
 }
 
 .log-result-pill.banner-accept {
-  background: rgba(34, 197, 94, 0.14);
-  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(124, 255, 178, 0.14);
+  border-color: rgba(124, 255, 178, 0.4);
   color: var(--accent-secondary);
 }
 
@@ -700,7 +700,7 @@
 select {
   width: 100%;
   padding: 11px 14px;
-  background-color: #111827;
+  background-color: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 14px;
@@ -714,7 +714,7 @@ select:focus {
 }
 
 .pda-config-panel select option {
-  background-color: #111827;
+  background-color: var(--bg-secondary);
   color: var(--text-primary);
 }
 

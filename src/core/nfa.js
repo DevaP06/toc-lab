@@ -33,7 +33,8 @@ export class NFA {
   normalizeEpsilonSymbol(symbol) {
     if (symbol === null || symbol === undefined) return 'ε';
     const normalized = String(symbol).trim();
-    if (normalized === '' || normalized.toLowerCase() === 'epsilon' || normalized === 'ε') return 'ε';
+    const epsSet = ['ε', 'epsilon', 'eps', 'λ'];
+    if (normalized === '' || epsSet.includes(normalized.toLowerCase())) return 'ε';
     return normalized;
   }
 
@@ -106,12 +107,10 @@ export class NFA {
 
   epsilonClosure(statesInput) {
     const stack = Array.isArray(statesInput) ? [...statesInput] : Array.from(statesInput);
-    console.log('Computing ε-closure for:', Array.from(stack));
     const closure = new Set(stack);
     
     while(stack.length > 0) {
       const current = stack.pop();
-      console.log(' Visiting:', current);
       const epsilonTargets = this.transitions[current]?.['ε'] || [];
       
       const targetsArray = Array.isArray(epsilonTargets) ? epsilonTargets : [epsilonTargets];

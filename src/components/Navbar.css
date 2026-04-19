@@ -29,9 +29,9 @@
 }
 
 .sidebar-hamburger:hover {
-  background: rgba(99, 102, 241, 0.14);
-  border-color: rgba(99, 102, 241, 0.45);
-  color: white;
+  background: rgba(0, 245, 196, 0.14);
+  border-color: rgba(0, 245, 196, 0.45);
+  color: var(--text-primary);
 }
 
 .sidebar-hamburger:active {
@@ -81,11 +81,11 @@
 
 .nav-link:hover {
   color: var(--accent-primary);
-  background-color: rgba(99, 102, 241, 0.1);
+  background-color: rgba(0, 245, 196, 0.1);
 }
 
 .nav-link.active {
-  color: white;
+  color: var(--bg);
   background-color: var(--accent-primary);
 }
 

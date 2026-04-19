@@ -17,8 +17,8 @@ export function convertNfaToDfa(nfa) {
   
   // Helper to format a set of states as a string name for the DFA
   const formatSetName = (set) => {
-    if (set.size === 0) return 'DEAD';
-    return Array.from(set).sort().join('_');
+    if (!set || set.size === 0) return 'DEAD';
+    return Array.from(new Set(set)).sort().join('_');
   };
 
   const startClosure = nfa.epsilonClosure([nfa.startState]);
@@ -111,7 +111,24 @@ export function convertNfaToDfa(nfa) {
     }
   }
 
-  if (dfaStates.has('DEAD')) {
+  // Ensure total DFA transition function before minimization/use.
+  let requiresDead = dfaStates.has('DEAD');
+
+  for (const state of dfaStates) {
+    dfaTransitions[state] = dfaTransitions[state] || {};
+    for (const symbol of alphabet) {
+      if (!dfaTransitions[state]?.[symbol]) {
+        dfaTransitions[state][symbol] = 'DEAD';
+        requiresDead = true;
+      }
+    }
+  }
+
+  if (requiresDead) {
+    if (!dfaStates.has('DEAD')) {
+      dfaStates.add('DEAD');
+    }
+
     console.log('Adding DEAD state transitions...');
     dfaTransitions.DEAD = dfaTransitions.DEAD || {};
     for (const symbol of alphabet) {
@@ -209,6 +226,9 @@ export function infixToPostfix(regex) {
       // Postfix quantifiers: emit directly (no stack needed, highest precedence)
       output += c;
     } else {
+      if (!isOperand(c) && !['|', '*', '+', '(', ')', '.'].includes(c)) {
+        throw new Error(`Invalid character: ${c}`);
+      }
       while (
         stack.length > 0 &&
         stack[stack.length - 1] !== '(' &&
@@ -240,15 +260,47 @@ function isOperand(c) {
 const EPSILON = 'ε';
 
 export function convertRegexToNfa(regexStr) {
+  if (!regexStr || regexStr.trim() === '') {
+    throw new Error('Empty regex not allowed');
+  }
+
   const postfix = regexToPostfix(regexStr.replace(/\s+/g, ''));
   let stateCounter = 0;
   function newState() { return `q${stateCounter++}`; }
+
+  function mergeTransitions(t1, t2) {
+    const merged = {};
+
+    const mergeFrom = (source) => {
+      for (const state in source || {}) {
+        if (!merged[state]) merged[state] = {};
+        for (const sym in source[state] || {}) {
+          const targets = Array.isArray(source[state][sym])
+            ? source[state][sym]
+            : [source[state][sym]];
+          if (!merged[state][sym]) merged[state][sym] = [];
+          for (const target of targets) {
+            if (!merged[state][sym].includes(target)) {
+              merged[state][sym].push(target);
+            }
+          }
+        }
+      }
+    };
+
+    mergeFrom(t1);
+    mergeFrom(t2);
+
+    return merged;
+  }
 
   // Collect actual alphabet symbols used in the regex
   const alphabetSet = new Set();
 
   function symbolNFA(symbol) {
-    alphabetSet.add(symbol);
+    if (symbol !== EPSILON) {
+      alphabetSet.add(symbol);
+    }
     const start = newState();
     const accept = newState();
     const transitions = { [start]: { [symbol]: [accept] } };
@@ -258,13 +310,11 @@ export function convertRegexToNfa(regexStr) {
   function unionNFA(frag1, frag2) {
     const start = newState();
     const accept = newState();
-    const transitions = {
-      ...frag1.transitions,
-      ...frag2.transitions,
+    const transitions = mergeTransitions(mergeTransitions(frag1.transitions, frag2.transitions), {
       [start]: { [EPSILON]: [frag1.start, frag2.start] },
       [frag1.accept]: { [EPSILON]: [accept] },
       [frag2.accept]: { [EPSILON]: [accept] },
-    };
+    });
     const states = [start, ...frag1.states, ...frag2.states, accept];
     return { start, accept, transitions, states };
   }
@@ -273,14 +323,12 @@ export function convertRegexToNfa(regexStr) {
     // Merge frag1.accept's epsilon targets rather than blindly overwriting,
     // in case frag1.accept already has an epsilon entry (defensive merge).
     const existingEps = frag1.transitions[frag1.accept]?.[EPSILON] || [];
-    const transitions = {
-      ...frag1.transitions,
-      ...frag2.transitions,
+    const transitions = mergeTransitions(mergeTransitions(frag1.transitions, frag2.transitions), {
       [frag1.accept]: {
         ...(frag1.transitions[frag1.accept] || {}),
         [EPSILON]: [...existingEps, frag2.start],
       },
-    };
+    });
     const states = [...frag1.states, ...frag2.states];
     return { start: frag1.start, accept: frag2.accept, transitions, states };
   }
@@ -288,11 +336,10 @@ export function convertRegexToNfa(regexStr) {
   function starNFA(frag) {
     const start = newState();
     const accept = newState();
-    const transitions = {
-      ...frag.transitions,
+    const transitions = mergeTransitions(frag.transitions, {
       [start]: { [EPSILON]: [frag.start, accept] },
       [frag.accept]: { [EPSILON]: [frag.start, accept] },
-    };
+    });
     const states = [start, ...frag.states, accept];
     return { start, accept, transitions, states };
   }
@@ -300,11 +347,14 @@ export function convertRegexToNfa(regexStr) {
   // a+ = a followed by a* — one or more
   function plusNFA(frag) {
     const accept = newState();
-    const transitions = {
-      ...frag.transitions,
+    const existing = frag.transitions[frag.accept] || {};
+    const transitions = mergeTransitions(frag.transitions, {
       // From frag's accept: loop back to frag's start OR go to new accept
-      [frag.accept]: { [EPSILON]: [frag.start, accept] },
-    };
+      [frag.accept]: {
+        ...existing,
+        [EPSILON]: [...(existing[EPSILON] || []), frag.start, accept],
+      },
+    });
     const states = [...frag.states, accept];
     return { start: frag.start, accept, transitions, states };
   }
@@ -317,33 +367,48 @@ export function convertRegexToNfa(regexStr) {
     } else {
       switch (c) {
         case '.': {
+          if (stack.length < 2) {
+            throw new Error("Invalid regex: missing operand for concatenation '.'");
+          }
           const frag2 = stack.pop();
           const frag1 = stack.pop();
           stack.push(concatNFA(frag1, frag2));
           break;
         }
         case '|': {
+          if (stack.length < 2) {
+            throw new Error("Invalid regex: missing operand after '|'");
+          }
           const frag2 = stack.pop();
           const frag1 = stack.pop();
           stack.push(unionNFA(frag1, frag2));
           break;
         }
         case '*': {
+          if (stack.length < 1) {
+            throw new Error("Invalid regex: missing operand before '*'");
+          }
           const frag = stack.pop();
           stack.push(starNFA(frag));
           break;
         }
         case '+': {
+          if (stack.length < 1) {
+            throw new Error("Invalid regex: missing operand before '+'");
+          }
           const frag = stack.pop();
           stack.push(plusNFA(frag));
           break;
         }
         default:
-          break;
+          throw new Error(`Invalid regex: unexpected token '${c}'`);
       }
     }
   }
 
+  if (stack.length !== 1) {
+    throw new Error('Invalid regex: malformed expression');
+  }
   const result = stack.pop();
   const alphabetArr = Array.from(alphabetSet).sort();
 

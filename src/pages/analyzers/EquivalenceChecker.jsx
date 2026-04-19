@@ -24,6 +24,8 @@ const EquivalenceChecker = () => {
   const [defA, setDefA] = useState(DEFAULT_DFA_A);
   const [defB, setDefB] = useState(DEFAULT_DFA_B);
   const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [showPairTransitions, setShowPairTransitions] = useState(false);
   
   const parseDFA = (definition) => {
       const statesArr = definition.states.split(',').map(s => s.trim()).filter(Boolean);
@@ -32,13 +34,25 @@ const EquivalenceChecker = () => {
       
       const transObj = {};
       const lines = definition.transitions.split('\n');
-      lines.forEach(line => {
-        const parts = line.split(',').map(p => p.trim());
-        if (parts.length === 3) {
-          const [from, symbol, to] = parts;
-          if (!transObj[from]) transObj[from] = {};
-          transObj[from][symbol] = to;
+      lines.forEach((line, index) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+
+        const parts = trimmed.split(',').map(p => p.trim());
+        if (parts.length !== 3) {
+          throw new Error(`Invalid transition format at line ${index + 1}: ${trimmed}`);
         }
+
+        const [from, symbol, to] = parts;
+        if (!from || !symbol || !to) {
+          throw new Error(`Invalid transition values at line ${index + 1}: ${trimmed}`);
+        }
+
+        if (!transObj[from]) transObj[from] = {};
+        if (transObj[from][symbol] && transObj[from][symbol] !== to) {
+          throw new Error(`Conflicting transition for (${from}, ${symbol}) at line ${index + 1}`);
+        }
+        transObj[from][symbol] = to;
       });
 
       const dfa = new DFA(statesArr, alphaArr, transObj, definition.startState.trim(), acceptArr);
@@ -53,9 +67,11 @@ const EquivalenceChecker = () => {
       const dfaB = parseDFA(defB);
       
       const eqResult = checkEquivalence(dfaA, dfaB);
+      setError(null);
       setResult(eqResult);
     } catch (e) {
-      alert("Error parsing DFA definitions: " + e.message);
+      setResult(null);
+      setError(`Error parsing DFA definitions: ${e.message}`);
     }
   };
 
@@ -63,8 +79,14 @@ const EquivalenceChecker = () => {
     <div className="converter-container fade-in">
       <div className="header-section">
         <h2>DFA Equivalence Checker</h2>
-        <p className="text-muted">Compare two Deterministic Finite Automata to verify if they accept the exact same language using the Table-Filling (Myhill-Nerode) state distinguishability check.</p>
+        <p className="text-muted">Compare two Deterministic Finite Automata using BFS on the product automaton, with automatic alphabet union, DFA completion, and shortest counterexample extraction.</p>
       </div>
+
+      {error && (
+        <div className="panel converter-error" role="alert">
+          {error}
+        </div>
+      )}
 
       <div className="converter-grid">
         <div className="left-panel">
@@ -140,13 +162,13 @@ const EquivalenceChecker = () => {
             {result && (
               <div className="fade-in" style={{
                 width: '100%', padding: '24px', borderRadius: '12px', textAlign: 'center',
-                backgroundColor: result.isEquivalent ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                border: `2px solid ${result.isEquivalent ? '#22C55E' : '#EF4444'}`
+                backgroundColor: result.isEquivalent ? 'rgba(124, 255, 178, 0.15)' : 'rgba(255, 107, 129, 0.15)',
+                border: `2px solid ${result.isEquivalent ? 'var(--accent-secondary)' : 'var(--error)'}`
               }}>
                 <div style={{display:'flex', justifyContent: 'center', marginBottom: 12}}>
-                   <Activity size={48} color={result.isEquivalent ? '#22C55E' : '#EF4444'} />
+                   <Activity size={48} color={result.isEquivalent ? 'var(--accent-secondary)' : 'var(--error)'} />
                 </div>
-                <h3 style={{fontSize: 24, margin: '0 0 8px 0', color: result.isEquivalent ? '#4ADE80' : '#F87171'}}>
+                <h3 style={{fontSize: 24, margin: '0 0 8px 0', color: result.isEquivalent ? 'var(--accent-secondary)' : 'var(--error)'}}>
                   {result.isEquivalent ? 'DFAs are Equivalent!' : 'DFAs are NOT Equivalent!'}
                 </h3>
                 <p style={{color: 'var(--text-secondary)'}}>
@@ -154,9 +176,72 @@ const EquivalenceChecker = () => {
                     ? 'Both machines accept the exact same language.' 
                     : 'The machines treat strings differently and are computationally distinct.'}
                 </p>
+                <p style={{color: 'var(--text-secondary)', marginTop: 8}}>
+                  {result.reason}
+                </p>
+
+                {Array.isArray(result.alphabet) && result.alphabet.length > 0 && (
+                  <p style={{color: 'var(--text-secondary)', marginTop: 6}}>
+                    Union alphabet: {'{'}{result.alphabet.join(', ')}{'}'}
+                  </p>
+                )}
+
+                {!result.isEquivalent && (
+                  <div style={{
+                    marginTop: 14,
+                    padding: 12,
+                    borderRadius: 10,
+                    background: 'rgba(15, 23, 42, 0.35)',
+                    border: '1px solid rgba(248, 113, 113, 0.45)'
+                  }}>
+                    {typeof result.counterExample === 'string' && (
+                      <div style={{marginBottom: 8, color: 'var(--text-secondary)'}}>
+                        Counterexample string: <strong style={{color: 'var(--text-primary)'}}>"{result.counterExample}"</strong>
+                      </div>
+                    )}
+                    {result.mismatchPair && (
+                      <div style={{color: 'var(--text-secondary)'}}>
+                        First mismatch pair: <strong style={{color: 'var(--text-primary)'}}>({result.mismatchPair.a}, {result.mismatchPair.b})</strong>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
+
+          {result && (
+            <div className="panel" style={{marginTop: 12}}>
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12}}>
+                <h3 className="panel-header" style={{marginBottom: 0}}>Debug Transitions</h3>
+                <label style={{display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)'}}>
+                  <input
+                    className="inline-check"
+                    type="checkbox"
+                    checked={showPairTransitions}
+                    onChange={(e) => setShowPairTransitions(e.target.checked)}
+                  />
+                  Show product-pair transitions
+                </label>
+              </div>
+
+              {showPairTransitions ? (
+                <div className="trace-box" style={{maxHeight: 220, overflow: 'auto', marginTop: 10}}>
+                  {Array.isArray(result.exploredPairs) && result.exploredPairs.length > 0 ? (
+                    result.exploredPairs.map((edge, idx) => (
+                      <div key={`${edge.from}-${edge.symbol}-${edge.to}-${idx}`} className="trace-line">
+                        {edge.from} --{edge.symbol}--&gt; {edge.to}
+                      </div>
+                    ))
+                  ) : (
+                    <span className="text-muted">No transition debug data available.</span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-muted">Enable debug transitions to inspect explored product-state edges.</span>
+              )}
+            </div>
+          )}
 
           <div className="panel log-panel" style={{flex: 1}}>
             <h3 className="panel-header">Equivalence Proof Steps</h3>
@@ -170,6 +255,22 @@ const EquivalenceChecker = () => {
               )}
             </div>
           </div>
+
+          {result && !result.isEquivalent && Array.isArray(result.pairTrace) && result.pairTrace.length > 0 && (
+            <div className="panel" style={{marginTop: 12}}>
+              <h3 className="panel-header">Shortest Mismatch Path</h3>
+              <div className="trace-box" style={{maxHeight: 180, overflow: 'auto'}}>
+                {result.pairTrace.map((node, idx) => (
+                  <div key={`${node.pair}-${idx}`} className="trace-line" style={{
+                    color: idx === result.pairTrace.length - 1 ? '#FCA5A5' : undefined,
+                    fontWeight: idx === result.pairTrace.length - 1 ? 600 : 400
+                  }}>
+                    {idx === 0 ? `${node.pair} (start)` : `${node.pair} via '${node.symbol}'`}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
       </div>

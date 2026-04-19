@@ -7,7 +7,6 @@ import PdaSimulator from '../pages/simulators/PdaSimulator';
 import TuringMachineSimulator from '../pages/simulators/TuringMachineSimulator';
 import NfaToDfaConverter from '../pages/converters/NfaToDfaConverter';
 import RegexToNfaConverter from '../pages/converters/RegexToNfaConverter';
-import FaToRegexConverter from '../pages/converters/FaToRegexConverter';
 import DfaMinimizer from '../pages/analyzers/DfaMinimizer';
 import EquivalenceChecker from '../pages/analyzers/EquivalenceChecker';
 import './Workspace.css';
@@ -34,7 +33,6 @@ const Workspace = () => {
         {/* Converters */}
         <Route path="/converters/nfa-to-dfa" element={<NfaToDfaConverter />} />
         <Route path="/converters/regex-to-nfa" element={<RegexToNfaConverter />} />
-        <Route path="/converters/fa-to-regex" element={<FaToRegexConverter />} />
         
         {/* Analyzers */}
         <Route path="/analyzers/dfa-minimizer" element={<DfaMinimizer />} />

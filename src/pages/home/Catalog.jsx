@@ -170,7 +170,6 @@ const TOOLS = [
   { fam: 'sim', key: 'tm',  name: 'Turing Machine',   kbd: 'T', blurb: 'Infinite tape, head tracking',     route: '/simulators/tm' },
   { fam: 'cvt', key: 'n2d', name: 'NFA → DFA',        kbd: '1', blurb: 'Subset construction',              route: '/converters/nfa-to-dfa' },
   { fam: 'cvt', key: 'r2n', name: 'Regex → NFA',      kbd: '2', blurb: 'Thompson construction',            route: '/converters/regex-to-nfa' },
-  { fam: 'cvt', key: 'f2r', name: 'FA → Regex',       kbd: '3', blurb: 'State elimination',                route: '/converters/fa-to-regex' },
   { fam: 'an',  key: 'min', name: 'DFA Minimization', kbd: 'M', blurb: 'Hopcroft partitioning',            route: '/analyzers/dfa-minimizer' },
   { fam: 'an',  key: 'eq',  name: 'DFA Equivalence',  kbd: 'E', blurb: 'Language equality check',          route: '/analyzers/equivalence' },
 ];

@@ -2,24 +2,34 @@
 
 @tailwind base;
 @tailwind components;
-@tailwind utilities;:root {
-  --bg-primary: #0F172A;
-  --bg-secondary: #111827;
-  --bg-card: #1F2937;
-  --border: #374151;
+@tailwind utilities;
 
-  --accent-primary: #6366F1;
-  --accent-primary-hover: #4F46E5;
-  --accent-secondary: #22C55E;
-  --accent-secondary-hover: #16A34A;
-  --accent-highlight: #F59E0B;
-  --accent-highlight-hover: #D97706;
-  --error: #EF4444;
-  --error-hover: #DC2626;
+:root {
+  --bg: #0B0F14;
+  --card: #121923;
+  --primary: #00F5C4;
+  --secondary: #1F3B73;
+  --accent: #7CFFB2;
+  --text: #E6F1FF;
+  --muted: #7A8CA3;
 
-  --text-primary: #F9FAFB;
-  --text-secondary: #9CA3AF;
-  --text-muted: #6B7280;
+  --bg-primary: var(--bg);
+  --bg-secondary: var(--card);
+  --bg-card: var(--card);
+  --border: rgba(31, 59, 115, 0.75);
+
+  --accent-primary: var(--primary);
+  --accent-primary-hover: var(--accent);
+  --accent-secondary: var(--accent);
+  --accent-secondary-hover: var(--primary);
+  --accent-highlight: var(--secondary);
+  --accent-highlight-hover: #2A4F97;
+  --error: #FF6B81;
+  --error-hover: #FF4D6D;
+
+  --text-primary: var(--text);
+  --text-secondary: #B9C8DA;
+  --text-muted: var(--muted);
   
   --font-main: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -163,7 +173,7 @@ code, pre {
 
 .btn-primary {
   padding: 10px 20px;
-  background-color: #6366f1;
+  background-color: var(--accent-primary);
   color: white;
   font-weight: 600;
   font-size: 14px;
@@ -171,23 +181,23 @@ code, pre {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 10px rgba(0, 245, 196, 0.3);
 }
 
 .btn-primary:hover {
-  background-color: #4f46e5;
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.45);
+  background-color: var(--accent-primary-hover);
+  box-shadow: 0 4px 16px rgba(124, 255, 178, 0.35);
   transform: translateY(-1px);
 }
 
 .btn-primary:active {
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 245, 196, 0.2);
 }
 
 .btn-success {
   padding: 10px 20px;
-  background-color: #22c55e;
+  background-color: var(--accent-secondary);
   color: white;
   font-weight: 600;
   font-size: 14px;
@@ -196,29 +206,29 @@ code, pre {
   transition: all 0.2s ease;
 }
 .btn-success:hover {
-  background-color: #16a34a;
-  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
+  background-color: var(--accent-secondary-hover);
+  box-shadow: 0 4px 16px rgba(124, 255, 178, 0.3);
 }
 
 .btn-warning {
   padding: 10px 20px;
   background-color: transparent;
-  color: #f59e0b;
+  color: var(--accent-highlight);
   font-weight: 600;
   font-size: 14px;
-  border: 1px solid #f59e0b;
+  border: 1px solid var(--accent-highlight);
   border-radius: 8px;
   transition: all 0.2s ease;
 }
 .btn-warning:hover {
-  background-color: rgba(245, 158, 11, 0.12);
-  color: #fbbf24;
-  border-color: #fbbf24;
+  background-color: rgba(31, 59, 115, 0.2);
+  color: #8DA8D6;
+  border-color: #8DA8D6;
 }
 
 .btn-danger {
   padding: 10px 20px;
-  background-color: #ef4444;
+  background-color: var(--error);
   color: white;
   font-weight: 600;
   font-size: 14px;
@@ -227,7 +237,7 @@ code, pre {
   transition: all 0.2s ease;
 }
 .btn-danger:hover {
-  background-color: #dc2626;
+  background-color: var(--error-hover);
   box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
 }
 
@@ -237,13 +247,13 @@ code, pre {
   color: var(--accent-primary);
 }
 .btn-outline:hover {
-  background-color: rgba(99, 102, 241, 0.1);
+  background-color: rgba(0, 245, 196, 0.1);
 }
 
 /* Panels */
 .panel {
-  background-color: #1f2937;
-  border: 1px solid #374151;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 28px;
   transition: all 0.2s ease;
@@ -251,14 +261,14 @@ code, pre {
 }
 
 .panel:hover {
-  border-color: rgba(99, 102, 241, 0.5);
-  background-color: #1f2937;
+  border-color: rgba(0, 245, 196, 0.45);
+  background-color: var(--bg-card);
 }
 
 .panel-header {
   font-size: 18px;
   font-weight: 600;
-  color: #f9fafb;
+  color: var(--text-primary);
   margin-bottom: 24px;
 }
 
@@ -267,7 +277,7 @@ label {
   display: block;
   font-size: 14px;
   font-weight: 500;
-  color: #d1d5db;
+  color: var(--text-secondary);
   margin-bottom: 8px;
   letter-spacing: 0.3px;
 }
@@ -275,11 +285,11 @@ label {
 input, select, textarea {
   width: 100%;
   padding: 12px 16px;
-  background-color: #111827;
-  border: 1px solid #374151;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 14px;
-  color: #f9fafb;
+  color: var(--text-primary);
   font-family: var(--font-mono);
   transition: all 0.2s ease;
   margin-bottom: 16px;
@@ -287,13 +297,13 @@ input, select, textarea {
 
 input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: #6366f1;
-  background-color: rgba(99, 102, 241, 0.05);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--accent-primary);
+  background-color: rgba(0, 245, 196, 0.05);
+  box-shadow: 0 0 0 3px rgba(0, 245, 196, 0.1);
 }
 
 input:hover, select:hover, textarea:hover {
-  border-color: rgba(99, 102, 241, 0.4);
+  border-color: rgba(0, 245, 196, 0.4);
 }
 
 /* Tables */
@@ -330,14 +340,14 @@ tr:last-child td {
 
 /* Footer/Status Bar */
 .app-footer {
-  background-color: #111827;
-  border-top: 1px solid #374151;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border);
   padding: 16px 32px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-muted);
   margin-top: auto;
   z-index: 100;
 }
@@ -352,7 +362,7 @@ tr:last-child td {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #22c55e;
+  background-color: var(--accent-secondary);
   animation: footer-pulse 2s infinite;
 }
 
