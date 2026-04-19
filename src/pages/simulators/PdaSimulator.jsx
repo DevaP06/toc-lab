@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, SkipForward, RotateCcw, Layers, Settings2 } from 'lucide-react';
+import { Play, SkipForward, RotateCcw, Layers } from 'lucide-react';
 import GraphVisualizer from '../../components/automata/GraphVisualizer';
 import { PDA, getPDASelectionPreset } from '../../core/pda';
 import './PdaSimulator.css';
@@ -8,32 +8,50 @@ const LANGUAGE_OPTIONS = [
   { value: 'ANBN',     label: "aⁿbⁿ — equal a's followed by b's" },
   { value: 'EVEN_PAL', label: 'wwᴿ — even length palindromes'    },
   { value: 'ODD_PAL',  label: 'Odd palindromes'                   },
-  { value: 'CUSTOM',   label: 'Custom — define your own PDA'      },
 ];
 
-const CUSTOM_BLANK = {
-  selectedLanguage: 'CUSTOM',
-  languageLabel: 'Custom PDA',
-  states: 'q0, q1, q2',
-  inputAlphabet: 'a, b',
-  stackAlphabet: 'A, Z',
-  startState: 'q0',
-  startStack: 'Z',
-  acceptStates: 'q2',
-  transitions: 'q0, a, Z, AZ, q0\nq0, a, A, AA, q0\nq0, b, A, ε, q1\nq1, b, A, ε, q1\nq1, ε, Z, Z, q2',
-  inputString: 'aabb',
+const LANGUAGE_DETAILS = {
+  ANBN: {
+    name: 'aⁿbⁿ',
+    meaning: 'equal number of a\'s followed by b\'s',
+  },
+  EVEN_PAL: {
+    name: 'wwᴿ',
+    meaning: 'even-length palindromes',
+  },
+  ODD_PAL: {
+    name: 'wXwᴿ',
+    meaning: 'odd-length palindromes',
+  }
 };
 
 const getPresetDef = (value) => {
-  if (value === 'CUSTOM') return CUSTOM_BLANK;
   const preset = getPDASelectionPreset(value);
   const label = LANGUAGE_OPTIONS.find(o => o.value === value)?.label || '';
   return {
     selectedLanguage: value,
     languageLabel: label,
+    languageMeaning: LANGUAGE_DETAILS[value]?.meaning || '',
     inputString: preset.sampleInput,
     ...preset.definition,
   };
+};
+
+const buildPresetEngine = (value) => {
+  const preset = getPDASelectionPreset(value);
+  return new PDA(
+    preset.definition.states.split(',').map(s => s.trim()).filter(Boolean),
+    preset.definition.inputAlphabet.split(',').map(s => s.trim()).filter(Boolean),
+    preset.definition.stackAlphabet.split(',').map(s => s.trim()).filter(Boolean),
+    preset.definition.startState,
+    preset.definition.startStack,
+    preset.definition.acceptStates.split(',').map(s => s.trim()).filter(Boolean),
+    preset.definition.transitions.split('\n').reduce((acc, line) => {
+      const p = line.split(',').map(x => x.trim());
+      if (p.length === 5) acc.push({ from: p[0], input: p[1], pop: p[2], push: p[3], to: p[4] });
+      return acc;
+    }, [])
+  );
 };
 
 // Return the most "interesting" config at a given step:
@@ -48,49 +66,25 @@ const DEFAULT = 'ANBN';
 
 const PdaSimulator = () => {
   const [definition, setDefinition] = useState(getPresetDef(DEFAULT));
-  const [engine,     setEngine]     = useState(null);
+  const [engine,     setEngine]     = useState(() => buildPresetEngine(DEFAULT));
   const [sim,        setSim]        = useState({ steps: [], step: -1, accepted: false, timedOut: false });
   const [activeNodes, setActiveNodes] = useState([]);
-
-  const setField = (key, val) => setDefinition(prev => ({ ...prev, [key]: val }));
 
   const handleLanguageChange = (value) => {
     setDefinition(getPresetDef(value));
     setSim({ steps: [], step: -1, accepted: false, timedOut: false });
     setActiveNodes([]);
-    setEngine(null);
+    setEngine(buildPresetEngine(value));
   };
 
-  const parsePDA = () => {
-    try {
-      const statesArr = definition.states.split(',').map(s => s.trim()).filter(Boolean);
-      const inputArr  = definition.inputAlphabet.split(',').map(s => s.trim()).filter(Boolean);
-      const stackArr  = definition.stackAlphabet.split(',').map(s => s.trim()).filter(Boolean);
-      const acceptArr = definition.acceptStates.split(',').map(s => s.trim()).filter(Boolean);
-      const transArr  = definition.transitions.split('\n').reduce((acc, line) => {
-        const p = line.split(',').map(x => x.trim());
-        if (p.length === 5) acc.push({ from: p[0], input: p[1], pop: p[2], push: p[3], to: p[4] });
-        return acc;
-      }, []);
-
-      const pda = new PDA(
-        statesArr, inputArr, stackArr,
-        definition.startState.trim(),
-        definition.startStack.trim(),
-        acceptArr, transArr
-      );
-      const v = pda.validate();
-      if (!v.isValid) { alert('PDA Error: ' + v.error); return null; }
-      setEngine(pda);
-      return pda;
-    } catch (e) {
-      alert('Error parsing PDA: ' + e.message);
-      return null;
-    }
+  const loadPresetEngine = () => {
+    const pda = buildPresetEngine(definition.selectedLanguage);
+    setEngine(pda);
+    return pda;
   };
 
   const handleSimulate = () => {
-    const pda = parsePDA();
+    const pda = loadPresetEngine();
     if (!pda) return;
     const result = pda.simulateStepByStep(definition.inputString.trim());
     const last = result.allSteps.length - 1;
@@ -101,7 +95,7 @@ const PdaSimulator = () => {
   };
 
   const handleStep = () => {
-    const pda = engine || parsePDA();
+    const pda = engine || loadPresetEngine();
     if (!pda) return;
 
     if (sim.step === -1) {
@@ -142,6 +136,16 @@ const PdaSimulator = () => {
     return { states: engine.states, edges, startState: engine.startState, acceptStates: engine.acceptStates };
   };
 
+  const formatMove = (move) => {
+    if (!move) return 'Initial configuration';
+
+    const read = move.input === '' ? 'ε' : move.input;
+    const pop = move.pop || 'ε';
+    const push = move.push || 'ε';
+
+    return `Read '${read}', Pop ${pop}, Push ${push} → ${move.to}`;
+  };
+
   // Derived display values
   const hasRun   = sim.steps.length > 0;
   const isAtEnd  = hasRun && sim.step === sim.steps.length - 1;
@@ -157,6 +161,9 @@ const PdaSimulator = () => {
   const activeEdge  = currentMove ? { from: currentMove.from, to: currentMove.to } : null;
   const isRejected  = primary?.status === 'DEAD PATH' || primary?.status?.includes('REJECT');
   const rejectNodes = isRejected ? [primary.state] : [];
+  const graphModel = graphData();
+  const languageName = LANGUAGE_DETAILS[definition.selectedLanguage]?.name || definition.languageLabel;
+  const languageMeaning = LANGUAGE_DETAILS[definition.selectedLanguage]?.meaning || definition.languageMeaning || '';
 
   return (
     <div className="pda-page fade-in">
@@ -176,14 +183,10 @@ const PdaSimulator = () => {
         {/* ══ LEFT: Configuration ══════════════════════════ */}
         <div className="pda-left">
           <div className="panel pda-config-panel">
-            <h3 className="panel-header">
-              <Settings2 size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} />
-              PDA Configuration
-            </h3>
+            <h3 className="panel-header">Language</h3>
 
-            {/* Language Preset */}
             <div className="form-group">
-              <label>Language Preset</label>
+              <label>Select Language</label>
               <select value={definition.selectedLanguage} onChange={e => handleLanguageChange(e.target.value)}>
                 {LANGUAGE_OPTIONS.map(o => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -191,76 +194,68 @@ const PdaSimulator = () => {
               </select>
             </div>
 
-            {/* States */}
-            <div className="form-group">
-              <label>States <span className="field-hint">comma separated</span></label>
-              <input
-                value={definition.states}
-                onChange={e => setField('states', e.target.value)}
-                placeholder="q0, q1, q2"
-              />
-            </div>
-
-            {/* Alphabets */}
-            <div className="pda-field-row">
-              <div className="form-group">
-                <label>Input Alphabet</label>
-                <input
-                  value={definition.inputAlphabet}
-                  onChange={e => setField('inputAlphabet', e.target.value)}
-                  placeholder="a, b"
-                />
+            <div className="preset-description">
+              <div className="preset-summary">
+                Language: <strong>{languageName}</strong>
               </div>
-              <div className="form-group">
-                <label>Stack Alphabet</label>
-                <input
-                  value={definition.stackAlphabet}
-                  onChange={e => setField('stackAlphabet', e.target.value)}
-                  placeholder="A, Z"
-                />
+              <div className="preset-meaning">
+                Meaning: {languageMeaning}
+              </div>
+              <div className="preset-example">
+                Example input: <strong>{definition.inputString}</strong>
               </div>
             </div>
 
-            {/* Start State / Start Stack / Accept */}
-            <div className="pda-field-row pda-field-row-3">
-              <div className="form-group">
-                <label>Start State</label>
-                <input
-                  value={definition.startState}
-                  onChange={e => setField('startState', e.target.value)}
-                  placeholder="q0"
-                />
-              </div>
-              <div className="form-group">
-                <label>Start Stack Symbol</label>
-                <input
-                  value={definition.startStack}
-                  onChange={e => setField('startStack', e.target.value)}
-                  placeholder="Z"
-                />
-              </div>
-              <div className="form-group">
-                <label>Accept States</label>
-                <input
-                  value={definition.acceptStates}
-                  onChange={e => setField('acceptStates', e.target.value)}
-                  placeholder="q2"
-                />
-              </div>
-            </div>
+            <p className="text-muted preset-note">
+              This preset automatically defines the PDA.
+            </p>
+          </div>
 
-            {/* Transitions */}
-            <div className="form-group">
-              <label>
-                Transitions
-                <span className="field-hint">from, input, pop, push, to — one per line — use ε for epsilon</span>
-              </label>
-              <textarea
-                rows={7}
-                value={definition.transitions}
-                onChange={e => setField('transitions', e.target.value)}
-                placeholder={"q0, a, Z, AZ, q0\nq0, a, A, AA, q0\nq0, b, A, ε, q1\nq1, ε, Z, Z, q2"}
-              />
+          {/* ── State Diagram (primary visual) ─────── */}
+          <div className="panel graph-panel">
+            <h3 className="panel-header" style={{ flexShrink: 0 }}>State Diagram</h3>
+            <div className="graph-panel-body">
+              <div className="graph-canvas">
+                {graphModel ? (
+                  <GraphVisualizer
+                    automaton={graphModel}
+                    activeNode={activeNodes}
+                    activeEdge={activeEdge}
+                    rejectNodes={rejectNodes}
+                  />
+                ) : (
+                  <div className="graph-empty">Unable to render PDA graph.</div>
+                )}
+              </div>
+
+              <div className="graph-controls">
+                <div className="graph-controls-input">
+                  <label>Input String</label>
+                  <input
+                    value={definition.inputString}
+                    onChange={e => setDefinition(prev => ({ ...prev, inputString: e.target.value }))}
+                    placeholder="e.g. aabb"
+                    className="input-str-field"
+                  />
+                </div>
+                <div className="control-buttons">
+                  <button className="btn btn-success" onClick={handleSimulate}>
+                    <Play size={14} /> Simulate
+                  </button>
+                  <button className="btn btn-warning" onClick={handleStep}>
+                    <SkipForward size={14} /> Step
+                  </button>
+                  <button className="btn btn-danger" onClick={handleReset}>
+                    <RotateCcw size={14} /> Reset
+                  </button>
+                </div>
+                {hasRun && (
+                  <div className="step-counter">
+                    Step {sim.step} / {sim.steps.length - 1}
+                    {!isAtEnd && <span className="step-hint"> — click Step to advance</span>}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -268,42 +263,12 @@ const PdaSimulator = () => {
         {/* ══ RIGHT: Simulation Output ═════════════════════ */}
         <div className="pda-right">
 
-          {/* ── Execution Controls (pinned at top of right column) ── */}
-          <div className="exec-controls-card" style={{ marginBottom: 20 }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Input String</label>
-              <input
-                value={definition.inputString}
-                onChange={e => setField('inputString', e.target.value)}
-                placeholder="e.g. aabb"
-                className="input-str-field"
-              />
-            </div>
-            <div className="control-buttons">
-              <button className="btn btn-success" onClick={handleSimulate}>
-                <Play size={15} /> Simulate
-              </button>
-              <button className="btn btn-warning" onClick={handleStep}>
-                <SkipForward size={15} /> Step
-              </button>
-              <button className="btn btn-danger" onClick={handleReset}>
-                <RotateCcw size={15} /> Reset
-              </button>
-            </div>
-            {hasRun && (
-              <div className="step-counter">
-                Step {sim.step} / {sim.steps.length - 1}
-                {!isAtEnd && <span className="step-hint"> — click Step to advance</span>}
-              </div>
-            )}
-          </div>
-
           {/* Input Tape */}
           <div className="panel tape-panel">
             <h3 className="panel-header">Input Tape</h3>
             {inputStr.length === 0 ? (
               <p className="text-muted" style={{ fontSize: 13 }}>
-                Enter an input string on the left to begin.
+                Enter an input string to begin.
               </p>
             ) : (
               <>
@@ -340,67 +305,76 @@ const PdaSimulator = () => {
             )}
           </div>
 
-          {/* State + Stack (side by side) */}
-          <div className="pda-state-stack-row">
+          <div className="machine-side-panels">
+            <div className="pda-state-stack-row">
 
-            {/* Current State */}
-            <div className="panel state-panel">
-              <h3 className="panel-header">Current State</h3>
-              {primary ? (
-                <div className="state-display">
-                  <div className={`state-node ${
-                    primary.status === 'ACCEPT' ? 'sn-accept' :
-                    primary.status === 'DEAD PATH' || primary.status.includes('REJECT') ? 'sn-reject' :
-                    'sn-active'
-                  }`}>
-                    {primary.state}
-                  </div>
-                  <div className={`state-status-tag ${
-                    primary.status === 'ACCEPT' ? 'tag-accept' :
-                    primary.status === 'DEAD PATH' || primary.status.includes('REJECT') ? 'tag-reject' :
-                    'tag-active'
-                  }`}>
-                    {primary.status}
-                  </div>
-                  {current.length > 1 && (
-                    <div className="parallel-badge">{current.length} parallel paths</div>
+                {/* Current State */}
+                <div className="panel state-panel">
+                  <h3 className="panel-header">Current Configuration</h3>
+                  <div className="config-caption">(q, stack)</div>
+                  {primary ? (
+                    <div className="state-display">
+                      <div className={`state-node ${
+                        primary.status === 'ACCEPT' ? 'sn-accept' :
+                        primary.status === 'DEAD PATH' || primary.status.includes('REJECT') ? 'sn-reject' :
+                        'sn-active'
+                      }`}>
+                        {primary.state}
+                      </div>
+                      <div className={`state-status-tag ${
+                        primary.status === 'ACCEPT' ? 'tag-accept' :
+                        primary.status === 'DEAD PATH' || primary.status.includes('REJECT') ? 'tag-reject' :
+                        'tag-active'
+                      }`}>
+                        {primary.status}
+                      </div>
+                      {current.length > 1 && (
+                        <div className="parallel-badge">{current.length} parallel paths</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-muted" style={{ textAlign: 'center', paddingTop: 20, fontSize: 14 }}>
+                      Not started
+                    </div>
                   )}
                 </div>
-              ) : (
-                <div className="text-muted" style={{ textAlign: 'center', paddingTop: 20, fontSize: 14 }}>
-                  Not started
-                </div>
-              )}
-            </div>
 
-            {/* Stack Visualization */}
-            <div className="panel stack-vis-panel">
-              <h3 className="panel-header">
-                <Layers size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-                Stack
-              </h3>
-              <div className="stack-vis">
-                {primary && primary.stack.length > 0 ? (
-                  [...primary.stack].reverse().map((sym, i) => (
-                    <div key={i} className={`sv-block ${i === 0 ? 'sv-top' : ''}`}>
-                      <span className="sv-sym">{sym}</span>
-                      {i === 0 && <span className="sv-top-label">top</span>}
-                    </div>
-                  ))
-                ) : (
-                  <div className="sv-empty">Stack empty</div>
-                )}
-                <div className="sv-floor">⊥ bottom</div>
-              </div>
-              {primary && (
-                <div className="stack-depth">Depth: {primary.stack.length}</div>
-              )}
+                {/* Stack Visualization */}
+                <div className="panel stack-vis-panel">
+                  <h3 className="panel-header">
+                    <Layers size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                    Stack
+                  </h3>
+                  <div className="stack-vis">
+                    {primary && primary.stack.length > 0 ? (
+                      [...primary.stack].reverse().map((sym, i) => (
+                        <div key={i} className={`sv-block ${i === 0 ? 'sv-top' : ''}`}>
+                          <span className="sv-sym">{sym}</span>
+                          {i === 0 && <span className="sv-top-label">top</span>}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="sv-empty">Stack empty</div>
+                    )}
+                    <div className="sv-floor">⊥ bottom</div>
+                  </div>
+                  {primary && (
+                    <div className="stack-depth">Depth: {primary.stack.length}</div>
+                  )}
+                </div>
             </div>
           </div>
 
           {/* Execution Log */}
-          <div className="panel">
-            <h3 className="panel-header">Execution Log</h3>
+          <div className="panel log-panel">
+            <div className="log-header-row">
+              <h3 className="panel-header">Execution Log</h3>
+              {hasRun && isAtEnd && (
+                <div className={`log-result-pill ${sim.accepted ? 'banner-accept' : 'banner-reject'}`}>
+                  {sim.timedOut ? 'Timed Out' : sim.accepted ? 'Accepted' : 'Rejected'}
+                </div>
+              )}
+            </div>
             <div className="exec-log-box">
               {!hasRun && (
                 <div className="text-muted" style={{ fontSize: 13, padding: '10px 4px' }}>
@@ -422,16 +396,7 @@ const PdaSimulator = () => {
                   >
                     <span className="log-step-num">#{stepIdx}</span>
                     <span className="log-state-tag">{cfg.state}</span>
-                    {move ? (
-                      <span className="log-move-desc">
-                        read <code>{move.input === '' ? 'ε' : move.input}</code>
-                        &nbsp;pop <code>{move.pop || 'ε'}</code>
-                        &nbsp;push <code>{move.push || 'ε'}</code>
-                        &nbsp;→ <span className="log-to-state">{move.to}</span>
-                      </span>
-                    ) : (
-                      <span className="log-move-desc log-init">Initial configuration</span>
-                    )}
+                    <span className="log-move-desc">{formatMove(move)}</span>
                     <span className="log-stack-snap">[{cfg.stack.join(' ') || '∅'}]</span>
                     {configs.length > 1 && (
                       <span className="log-paths-badge">+{configs.length - 1}</span>
@@ -439,38 +404,6 @@ const PdaSimulator = () => {
                   </div>
                 );
               })}
-            </div>
-          </div>
-
-          {/* Result Banner */}
-          {hasRun && isAtEnd && (
-            <div className={`result-banner ${sim.accepted ? 'banner-accept' : 'banner-reject'} fade-in`}>
-              <span className="banner-icon">{sim.accepted ? '✅' : '❌'}</span>
-              <div className="banner-body">
-                <div className="banner-title">
-                  {sim.timedOut ? 'Timed Out' : sim.accepted ? 'String Accepted' : 'String Rejected'}
-                </div>
-                <div className="banner-detail">
-                  {sim.timedOut
-                    ? 'Simulation exceeded 500 steps — possible infinite epsilon cycle.'
-                    : sim.accepted
-                      ? `"${inputStr}" belongs to the language: ${definition.languageLabel}.`
-                      : `"${inputStr}" does NOT belong to the language: ${definition.languageLabel}.`}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* State Diagram */}
-          <div className="panel" style={{ height: 340, display: 'flex', flexDirection: 'column' }}>
-            <h3 className="panel-header" style={{ flexShrink: 0 }}>State Diagram</h3>
-            <div style={{ flex: 1, minHeight: 0 }}>
-              <GraphVisualizer
-                automaton={graphData()}
-                activeNode={activeNodes}
-                activeEdge={activeEdge}
-                rejectNodes={rejectNodes}
-              />
             </div>
           </div>
 
