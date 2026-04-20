@@ -77,9 +77,7 @@ npm run lint
 - `src/components` -> shared UI shell components
 - `src/pages/home` -> landing page sections/components
 
-## Repository Hygiene
 
-Generated/local agent artifacts and temporary files are excluded from version control through `.gitignore`.
 
 ## License
 
