@@ -26,3 +26,7 @@ dist-ssr
 # Agent-generated folders/artifacts
 *.pyc
 .github/prompts/*
+.agents/
+.superdesign/
+skills-lock.json
+out*.txt

@@ -1,16 +1,86 @@
-# React + Vite
+# TOC Lab
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Interactive Theory of Computation playground built with React and Vite.
 
-Currently, two official plugins are available:
+TOC Lab provides visual tools to simulate, convert, and analyze automata and formal-language workflows.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Features
 
-## React Compiler
+- Simulators: DFA, NFA, PDA, Turing Machine
+- Converters: NFA to DFA, Regex to NFA (Thompson construction)
+- Analyzers: DFA minimization, DFA equivalence checking
+- Interactive UI with route-based workspace and landing page
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech Stack
 
-## Expanding the ESLint configuration
+- React
+- Vite
+- React Router
+- Tailwind CSS (configured)
+- ESLint
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- npm
+
+### Install
+
+```bash
+npm install
+```
+
+### Run Development Server
+
+```bash
+npm run dev
+```
+
+### Build
+
+```bash
+npm run build
+```
+
+### Preview Production Build
+
+```bash
+npm run preview
+```
+
+### Lint
+
+```bash
+npm run lint
+```
+
+## Main Routes
+
+- `/` -> Home page
+- `/simulators/dfa`
+- `/simulators/nfa`
+- `/simulators/pda`
+- `/simulators/tm`
+- `/converters/nfa-to-dfa`
+- `/converters/regex-to-nfa`
+- `/analyzers/dfa-minimizer`
+- `/analyzers/equivalence`
+
+## Project Structure
+
+- `src/pages/simulators` -> simulator pages and styles
+- `src/pages/converters` -> converter pages
+- `src/pages/analyzers` -> analyzer pages
+- `src/core` -> automata and conversion logic
+- `src/components` -> shared UI shell components
+- `src/pages/home` -> landing page sections/components
+
+## Repository Hygiene
+
+Generated/local agent artifacts and temporary files are excluded from version control through `.gitignore`.
+
+## License
+
+No license file is currently defined in this repository.
