@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Settings2, ArrowRight } from 'lucide-react';
 import GraphVisualizer from '../../components/automata/GraphVisualizer';
+import ErrorBanner from '../../components/ui/ErrorBanner';
 import { convertRegexToNfa, convertNfaToDfa } from '../../core/converters';
 import { minimizeDFA as minimizeDfa } from '../../core/minimizer';
 import { validateRegex } from '../../core/regexValidator';
+import { parseCSV } from '../../utils/parser';
 import './Converter.css';
 
 const RegexToNfaConverter = () => {
@@ -45,30 +47,45 @@ const RegexToNfaConverter = () => {
     }
   };
 
-  const getNfaEngineFormat = () => {
-      if (!conversionResult) return null;
-      const { nfaInstance } = conversionResult;
-      const transitions = nfaInstance.transitions || nfaInstance.transition || {};
-      
-      const tObj = {};
-      for (const from in transitions) {
-          tObj[from] = {};
-        for (const symbol in transitions[from]) {
-             // GraphVisualizer expects array of targets for NFA
-         const targets = transitions[from]?.[symbol] || [];
-         tObj[from][symbol] = Array.isArray(targets) ? targets : [targets];
-          }
-      }
-
-      return {
-          states: nfaInstance.states,
-          transition: tObj,
-          startState: nfaInstance.startState,
-          acceptStates: nfaInstance.acceptStates
-      };
+  const toDisplayState = (state) => {
+    if (!state) return '-';
+    return String(state).includes('|') ? `{${String(state).split('|').join(',')}}` : state;
   };
 
-  const getDfaEngineFormat = () => {
+  const nfaDefinition = conversionResult?.nfaDefinitionFormatted;
+  const nfaStateCount = conversionResult?.nfaInstance?.states?.size || 0;
+  const dfaStateCount = conversionResult?.dfaInstance?.states instanceof Set
+    ? conversionResult.dfaInstance.states.size
+    : Array.isArray(conversionResult?.dfaInstance?.states)
+      ? conversionResult.dfaInstance.states.length
+      : 0;
+  const minimizedStateCount = conversionResult?.minimizedDfa?.states instanceof Set
+    ? conversionResult.minimizedDfa.states.size
+    : Array.isArray(conversionResult?.minimizedDfa?.states)
+      ? conversionResult.minimizedDfa.states.length
+      : 0;
+  const nfaAutomaton = useMemo(() => {
+    if (!conversionResult) return null;
+    const { nfaInstance } = conversionResult;
+    const transitions = nfaInstance.transition || {};
+
+    const tObj = {};
+    for (const from in transitions) {
+      tObj[from] = {};
+      for (const symbol in transitions[from]) {
+        const targets = transitions[from]?.[symbol] || [];
+        tObj[from][symbol] = Array.isArray(targets) ? targets : [targets];
+      }
+    }
+
+    return {
+      states: nfaInstance.states,
+      transition: tObj,
+      startState: nfaInstance.startState,
+      acceptStates: nfaInstance.acceptStates
+    };
+  }, [conversionResult]);
+  const dfaAutomaton = useMemo(() => {
     if (!conversionResult?.minimizedDfa) return null;
 
     const dfa = conversionResult.minimizedDfa;
@@ -91,25 +108,8 @@ const RegexToNfaConverter = () => {
       startState: dfa.startState,
       acceptStates: dfa.acceptStates
     };
-  };
-
-  const toDisplayState = (state) => {
-    if (!state) return '-';
-    return String(state).includes('_') ? `{${String(state).split('_').join(',')}}` : state;
-  };
-
-  const nfaDefinition = conversionResult?.nfaDefinitionFormatted;
-  const nfaStateCount = conversionResult?.nfaInstance?.states?.size || 0;
-  const dfaStateCount = conversionResult?.dfaInstance?.states instanceof Set
-    ? conversionResult.dfaInstance.states.size
-    : Array.isArray(conversionResult?.dfaInstance?.states)
-      ? conversionResult.dfaInstance.states.length
-      : 0;
-  const minimizedStateCount = conversionResult?.minimizedDfa?.states instanceof Set
-    ? conversionResult.minimizedDfa.states.size
-    : Array.isArray(conversionResult?.minimizedDfa?.states)
-      ? conversionResult.minimizedDfa.states.length
-      : 0;
+  }, [conversionResult]);
+  const visualizedAutomaton = viewMode === 'nfa' ? nfaAutomaton : dfaAutomaton;
 
   return (
     <div className="converter-container fade-in">
@@ -118,11 +118,7 @@ const RegexToNfaConverter = () => {
         <p className="text-muted">Convert a Regular Expression into an equivalent Nondeterministic Finite Automaton using Thompson's Construction Algorithm.</p>
       </div>
 
-      {error && (
-        <div className="panel converter-error" role="alert">
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner message={error} />}
 
       <div className="converter-grid">
         <div className="left-panel">
@@ -147,13 +143,13 @@ const RegexToNfaConverter = () => {
                     <strong>Postfix:</strong> <span style={{color: 'var(--accent-primary)'}}>{conversionResult.postfix}</span>
                 </div>
                 <div className="read-only-code">
-                   <strong>States:</strong> {nfaDefinition.states.split(',').map(s => toDisplayState(s.trim())).join(', ')}<br/>
+                   <strong>States:</strong> {parseCSV(nfaDefinition.states).map(s => toDisplayState(s)).join(', ')}<br/>
                    <strong>Alphabet:</strong> {nfaDefinition.alphabet}<br/>
                    <strong>Start State:</strong> {toDisplayState(nfaDefinition.startState)}<br/>
-                   <strong>Accepting:</strong> {nfaDefinition.acceptStates ? nfaDefinition.acceptStates.split(',').map(s => toDisplayState(s.trim())).join(', ') : '<None>'}<br/>
+                   <strong>Accepting:</strong> {nfaDefinition.acceptStates ? parseCSV(nfaDefinition.acceptStates).map(s => toDisplayState(s)).join(', ') : '<None>'}<br/>
                    <strong>Transitions:</strong><br/>
                    <pre>{nfaDefinition.transitions.split('\n').map(line => {
-                    const [from, symbol, to] = line.split(',').map(p => p.trim());
+                    const [from, symbol, to] = parseCSV(line);
                     return `${toDisplayState(from)}, ${symbol}, ${toDisplayState(to)}`;
                    }).join('\n')}</pre>
                 </div>
@@ -189,7 +185,7 @@ const RegexToNfaConverter = () => {
 
             {conversionResult ? (
                 <GraphVisualizer
-                  automaton={viewMode === 'nfa' ? getNfaEngineFormat() : getDfaEngineFormat()}
+                  automaton={visualizedAutomaton}
                 />
             ) : (
                 <div style={{display:'flex', height:'100%', alignItems:'center', justifyContent:'center', color:'var(--text-muted)'}}>

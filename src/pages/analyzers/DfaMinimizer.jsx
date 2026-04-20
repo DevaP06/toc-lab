@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Settings2, ArrowRight } from 'lucide-react';
 import GraphVisualizer from '../../components/automata/GraphVisualizer';
+import ErrorBanner from '../../components/ui/ErrorBanner';
 import { DFA } from '../../core/dfa';
 import { minimizeDFA } from '../../core/minimizer';
+import { parseCSV } from '../../utils/parser';
 import '../converters/Converter.css';
 
 const DEFAULT_DFA = {
@@ -16,17 +18,18 @@ const DEFAULT_DFA = {
 const DfaMinimizer = () => {
   const [definition, setDefinition] = useState(DEFAULT_DFA);
   const [minimizationResult, setMinimizationResult] = useState(null);
+  const [error, setError] = useState(null);
   
   const handleMinimize = () => {
     try {
-      const statesArr = definition.states.split(',').map(s => s.trim()).filter(Boolean);
-      const alphaArr = definition.alphabet.split(',').map(s => s.trim()).filter(Boolean);
-      const acceptArr = definition.acceptStates.split(',').map(s => s.trim()).filter(Boolean);
+      const statesArr = parseCSV(definition.states);
+      const alphaArr = parseCSV(definition.alphabet);
+      const acceptArr = parseCSV(definition.acceptStates);
       
       const transObj = {};
       const lines = definition.transitions.split('\n');
       lines.forEach(line => {
-        const parts = line.split(',').map(p => p.trim());
+        const parts = parseCSV(line);
         if (parts.length === 3) {
           const [from, symbol, to] = parts;
           if (!transObj[from]) transObj[from] = {};
@@ -37,38 +40,40 @@ const DfaMinimizer = () => {
       const dfa = new DFA(statesArr, alphaArr, transObj, definition.startState.trim(), acceptArr);
       const validation = dfa.validate();
       if (!validation.isValid) {
-        alert("DFA Definition Error: " + validation.error);
+        setError(`DFA Definition Error: ${validation.error}`);
+        setMinimizationResult(null);
         return;
       }
 
       const result = minimizeDFA(dfa);
+      setError(null);
       setMinimizationResult(result);
-    } catch (e) {
-      alert("Error parsing DFA definition or during minimization.");
+    } catch {
+      setMinimizationResult(null);
+      setError('Error parsing DFA definition or during minimization.');
     }
   };
 
-  const getDfaEngineFormat = () => {
-      if (!minimizationResult) return null;
-      const { minimizedInstance } = minimizationResult;
-      
-      const tObj = {};
-      for (const from in minimizedInstance.transition) {
-          tObj[from] = {};
-          for (const symbol in minimizedInstance.transition[from]) {
-             tObj[from][symbol] = [minimizedInstance.transition[from][symbol]];
-          }
-      }
-
-      return {
-          states: minimizedInstance.states,
-          transition: tObj,
-          startState: minimizedInstance.startState,
-          acceptStates: minimizedInstance.acceptStates
-      };
-  };
-
   const minDefinition = minimizationResult?.minimizedDefinition;
+  const minimizedAutomaton = useMemo(() => {
+    if (!minimizationResult) return null;
+    const { minimizedInstance } = minimizationResult;
+
+    const tObj = {};
+    for (const from in minimizedInstance.transition) {
+      tObj[from] = {};
+      for (const symbol in minimizedInstance.transition[from]) {
+        tObj[from][symbol] = [minimizedInstance.transition[from][symbol]];
+      }
+    }
+
+    return {
+      states: minimizedInstance.states,
+      transition: tObj,
+      startState: minimizedInstance.startState,
+      acceptStates: minimizedInstance.acceptStates
+    };
+  }, [minimizationResult]);
 
   return (
     <div className="converter-container fade-in">
@@ -76,6 +81,8 @@ const DfaMinimizer = () => {
         <h2>DFA Minimizer</h2>
         <p className="text-muted">Minimize a Deterministic Finite Automaton using the Table-Filling (Myhill-Nerode) Algorithm.</p>
       </div>
+
+      {error && <ErrorBanner message={error} />}
 
       <div className="converter-grid">
         <div className="left-panel">
@@ -137,7 +144,7 @@ const DfaMinimizer = () => {
           <div className="panel visualization-panel" style={{height:'350px'}}>
             <h3 className="panel-header">Resulting Graph</h3>
             {minimizationResult ? (
-                <GraphVisualizer automaton={getDfaEngineFormat()} />
+              <GraphVisualizer automaton={minimizedAutomaton} />
             ) : (
                 <div style={{display:'flex', height:'100%', alignItems:'center', justifyContent:'center', color:'var(--text-muted)'}}>
                     Define a DFA and click Minimize to generate the collapsed graph.

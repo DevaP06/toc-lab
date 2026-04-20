@@ -4,13 +4,13 @@
 export const BLANK_SYMBOL = '_';
 
 export class TuringMachine {
-  constructor(states, tapeAlphabet, startState, acceptState, rejectState, transitions, maxSteps = 2000) {
+  constructor(states, tapeAlphabet, startState, acceptState, rejectState, transition, maxSteps = 2000) {
     this.states = new Set(states);
     this.tapeAlphabet = new Set(tapeAlphabet);
     this.startState = startState;
     this.acceptState = acceptState;
     this.rejectState = rejectState;
-    this.transitions = transitions || {};
+    this.transition = transition || {};
     this.maxSteps = maxSteps;
   }
 
@@ -31,7 +31,7 @@ export class TuringMachine {
       return { isValid: false, error: 'Tape alphabet must include the blank symbol "_".' };
     }
 
-    for (const [state, transitionsBySymbol] of Object.entries(this.transitions)) {
+    for (const [state, transitionsBySymbol] of Object.entries(this.transition)) {
       if (!this.states.has(state)) {
         return { isValid: false, error: `Transition state "${state}" is not in the set of states.` };
       }
@@ -65,7 +65,7 @@ export class TuringMachine {
   }
 
   getTransition(state, symbol) {
-    return this.transitions?.[state]?.[symbol] || null;
+    return this.transition?.[state]?.[symbol] || null;
   }
 
   simulateStepByStep(inputString) {
@@ -345,13 +345,13 @@ export function generatePalindromeCheckerTM() {
       { from: 'q2a', read: 'Y', write: 'Y', move: 'L', next: 'q2a' },
       { from: 'q2a', read: 'a', write: 'X', move: 'L', next: 'qBack' },
       { from: 'q2a', read: 'b', write: 'b', move: 'S', next: 'qr' },
-      { from: 'q2a', read: '_', write: '_', move: 'S', next: 'qr' },
+      { from: 'q2a', read: '_', write: '_', move: 'S', next: 'qa' },
 
       { from: 'q2b', read: 'X', write: 'X', move: 'L', next: 'q2b' },
       { from: 'q2b', read: 'Y', write: 'Y', move: 'L', next: 'q2b' },
       { from: 'q2b', read: 'b', write: 'Y', move: 'L', next: 'qBack' },
       { from: 'q2b', read: 'a', write: 'a', move: 'S', next: 'qr' },
-      { from: 'q2b', read: '_', write: '_', move: 'S', next: 'qr' },
+      { from: 'q2b', read: '_', write: '_', move: 'S', next: 'qa' },
 
       { from: 'qBack', read: 'a', write: 'a', move: 'L', next: 'qBack' },
       { from: 'qBack', read: 'b', write: 'b', move: 'L', next: 'qBack' },

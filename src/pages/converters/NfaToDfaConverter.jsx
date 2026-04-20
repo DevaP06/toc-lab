@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Settings2, ArrowRight } from 'lucide-react';
 import GraphVisualizer from '../../components/automata/GraphVisualizer';
+import ErrorBanner from '../../components/ui/ErrorBanner';
 import { NFA } from '../../core/nfa';
 import { convertNfaToDfa } from '../../core/converters';
+import { normalizeEpsilon, parseCSV } from '../../utils/parser';
 import './Converter.css';
 
 const DEFAULT_NFA = {
@@ -26,7 +28,7 @@ const NfaToDfaConverter = () => {
   const toDisplayState = (state) => {
     if (!state) return '-';
     if (state === 'DEAD') return 'DEAD';
-    return `{${state.split('_').join(',')}}`;
+    return `{${state.split('|').join(',')}}`;
   };
 
   const deriveProcessingState = (step) => {
@@ -55,12 +57,10 @@ const NfaToDfaConverter = () => {
   
   const handleConvert = () => {
     try {
-      const statesArr = definition.states.split(',').map(s => s.trim()).filter(Boolean);
-      const alphaArr = definition.alphabet
-        .split(',')
-        .map(s => s.trim())
-        .filter(s => s && !['ε', 'epsilon', 'eps', 'λ'].includes(s.toLowerCase()));
-      const acceptArr = definition.acceptStates.split(',').map(s => s.trim()).filter(Boolean);
+      const statesArr = parseCSV(definition.states);
+      const alphaArr = parseCSV(definition.alphabet)
+        .filter(s => !['ε', 'epsilon', 'eps', 'λ'].includes(s.toLowerCase()));
+      const acceptArr = parseCSV(definition.acceptStates);
       
       const transObj = {};
       const lines = definition.transitions.split('\n');
@@ -68,13 +68,13 @@ const NfaToDfaConverter = () => {
         const trimmedLine = line.trim();
         if (!trimmedLine) return;
 
-        const parts = trimmedLine.split(',').map(p => p.trim());
+        const parts = parseCSV(trimmedLine);
         if (parts.length !== 3) {
           throw new Error(`Invalid transition format: ${trimmedLine}`);
         }
 
         const [from, rawSymbol, to] = parts;
-        const symbol = ['ε', 'epsilon', 'eps', 'λ'].includes(rawSymbol.toLowerCase()) ? 'ε' : rawSymbol;
+        const symbol = normalizeEpsilon(rawSymbol);
         if (!transObj[from]) transObj[from] = {};
         if (!transObj[from][symbol]) transObj[from][symbol] = [];
 
@@ -133,30 +133,6 @@ const NfaToDfaConverter = () => {
     setStepIndex(prev => Math.min(prev + 1, conversionResult.constructionSteps.length - 1));
   };
 
-  const getDfaEngineFormat = () => {
-      if (!conversionResult) return null;
-      const { dfaInstance } = conversionResult;
-      
-      const tObj = {};
-      for (const from in dfaInstance.transition) {
-          tObj[from] = {};
-          for (const symbol in dfaInstance.transition[from]) {
-              // Convert to array format GraphVisualizer expects even if DFA
-              const target = dfaInstance.transition[from]?.[symbol];
-              if (target) {
-                tObj[from][symbol] = [target];
-              }
-          }
-      }
-
-      return {
-          states: dfaInstance.states,
-          transition: tObj,
-          startState: dfaInstance.startState,
-          acceptStates: dfaInstance.acceptStates
-      };
-  };
-
   const getSubsetRows = () => {
     if (!conversionResult) return [];
     const dfa = conversionResult.dfaInstance;
@@ -171,14 +147,6 @@ const NfaToDfaConverter = () => {
     }));
   };
 
-  const getFocusedEdges = () => {
-    if (!conversionResult || !selectedState) return [];
-    const row = conversionResult.dfaInstance.transition[selectedState] || {};
-    return Object.entries(row)
-      .filter(([, target]) => Boolean(target))
-      .map(([symbol, target]) => ({ from: selectedState, to: target, symbol }));
-  };
-
   const dfaDefinition = conversionResult?.dfaDefinitionFormatted;
   const visibleSteps = !conversionResult
     ? []
@@ -191,7 +159,35 @@ const NfaToDfaConverter = () => {
     : null;
   const subsetRows = getSubsetRows();
   const dfaAlphabet = conversionResult ? Array.from(conversionResult.dfaInstance.alphabet) : [];
-  const focusedEdges = getFocusedEdges();
+  const focusedEdges = useMemo(() => {
+    if (!conversionResult || !selectedState) return [];
+    const row = conversionResult.dfaInstance.transition[selectedState] || {};
+    return Object.entries(row)
+      .filter(([, target]) => Boolean(target))
+      .map(([symbol, target]) => ({ from: selectedState, to: target, symbol }));
+  }, [conversionResult, selectedState]);
+  const dfaAutomaton = useMemo(() => {
+    if (!conversionResult) return null;
+    const { dfaInstance } = conversionResult;
+
+    const tObj = {};
+    for (const from in dfaInstance.transition) {
+      tObj[from] = {};
+      for (const symbol in dfaInstance.transition[from]) {
+        const target = dfaInstance.transition[from]?.[symbol];
+        if (target) {
+          tObj[from][symbol] = [target];
+        }
+      }
+    }
+
+    return {
+      states: dfaInstance.states,
+      transition: tObj,
+      startState: dfaInstance.startState,
+      acceptStates: dfaInstance.acceptStates
+    };
+  }, [conversionResult]);
 
   return (
     <div className="converter-container fade-in">
@@ -200,11 +196,7 @@ const NfaToDfaConverter = () => {
         <p className="text-muted">Convert a Nondeterministic Finite Automaton (with ε-transitions) into an equivalent Deterministic Finite Automaton using Subset Construction.</p>
       </div>
 
-      {error && (
-        <div className="panel converter-error" role="alert">
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner message={error} />}
 
       {warning && (
         <div className="panel converter-warning" role="status">
@@ -213,14 +205,13 @@ const NfaToDfaConverter = () => {
       )}
 
       {!!completenessIssues.length && (
-        <div className="panel converter-error" role="alert">
-          <strong>DFA completeness check failed:</strong>
+        <ErrorBanner message="DFA completeness check failed:">
           <ul className="converter-inline-list">
             {completenessIssues.map((issue) => (
               <li key={issue}>{issue}</li>
             ))}
           </ul>
-        </div>
+        </ErrorBanner>
       )}
 
       <div className="converter-grid">
@@ -267,13 +258,13 @@ const NfaToDfaConverter = () => {
              <div className="panel resulting-dfa-def">
                 <h3 className="panel-header text-success">Generated DFA</h3>
                 <div className="read-only-code">
-                   <strong>States:</strong> {dfaDefinition.states.split(',').map(s => toDisplayState(s.trim())).join(', ')}<br/>
+                   <strong>States:</strong> {parseCSV(dfaDefinition.states).map(s => toDisplayState(s)).join(', ')}<br/>
                    <strong>Alphabet:</strong> {dfaDefinition.alphabet}<br/>
                    <strong>Start State:</strong> {toDisplayState(dfaDefinition.startState)}<br/>
-                   <strong>Accepting:</strong> {dfaDefinition.acceptStates ? dfaDefinition.acceptStates.split(',').map(s => toDisplayState(s.trim())).join(', ') : '<None>'}<br/>
+                   <strong>Accepting:</strong> {dfaDefinition.acceptStates ? parseCSV(dfaDefinition.acceptStates).map(s => toDisplayState(s)).join(', ') : '<None>'}<br/>
                    <strong>Transitions:</strong><br/>
                    <pre>{dfaDefinition.transitions.split('\n').map(line => {
-                     const [from, symbol, to] = line.split(',').map(p => p.trim());
+                     const [from, symbol, to] = parseCSV(line);
                      return `${toDisplayState(from)}, ${symbol}, ${toDisplayState(to)}`;
                    }).join('\n')}</pre>
                 </div>
@@ -301,7 +292,7 @@ const NfaToDfaConverter = () => {
             </div>
             {conversionResult ? (
                 <GraphVisualizer
-                  automaton={getDfaEngineFormat()}
+                  automaton={dfaAutomaton}
                   activeNode={selectedState}
                   activeEdges={focusedEdges}
                   fadeInactiveEdges={focusedEdges.length > 0}

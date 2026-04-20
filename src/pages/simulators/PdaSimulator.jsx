@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Play, SkipForward, RotateCcw, Layers } from 'lucide-react';
 import GraphVisualizer from '../../components/automata/GraphVisualizer';
+import ErrorBanner from '../../components/ui/ErrorBanner';
 import { PDA, getPDASelectionPreset } from '../../core/pda';
+import { parseCSV } from '../../utils/parser';
 import './PdaSimulator.css';
 
 const LANGUAGE_OPTIONS = [
@@ -40,14 +42,14 @@ const getPresetDef = (value) => {
 const buildPresetEngine = (value) => {
   const preset = getPDASelectionPreset(value);
   return new PDA(
-    preset.definition.states.split(',').map(s => s.trim()).filter(Boolean),
-    preset.definition.inputAlphabet.split(',').map(s => s.trim()).filter(Boolean),
-    preset.definition.stackAlphabet.split(',').map(s => s.trim()).filter(Boolean),
+    parseCSV(preset.definition.states),
+    parseCSV(preset.definition.inputAlphabet),
+    parseCSV(preset.definition.stackAlphabet),
     preset.definition.startState,
     preset.definition.startStack,
-    preset.definition.acceptStates.split(',').map(s => s.trim()).filter(Boolean),
+    parseCSV(preset.definition.acceptStates),
     preset.definition.transitions.split('\n').reduce((acc, line) => {
-      const p = line.split(',').map(x => x.trim());
+      const p = parseCSV(line);
       if (p.length === 5) acc.push({ from: p[0], input: p[1], pop: p[2], push: p[3], to: p[4] });
       return acc;
     }, [])
@@ -67,11 +69,13 @@ const DEFAULT = 'ANBN';
 const PdaSimulator = () => {
   const [definition, setDefinition] = useState(getPresetDef(DEFAULT));
   const [engine,     setEngine]     = useState(() => buildPresetEngine(DEFAULT));
+  const [error, setError] = useState(null);
   const [sim,        setSim]        = useState({ steps: [], step: -1, accepted: false, timedOut: false });
   const [activeNodes, setActiveNodes] = useState([]);
 
   const handleLanguageChange = (value) => {
     setDefinition(getPresetDef(value));
+    setError(null);
     setSim({ steps: [], step: -1, accepted: false, timedOut: false });
     setActiveNodes([]);
     setEngine(buildPresetEngine(value));
@@ -86,12 +90,15 @@ const PdaSimulator = () => {
   const handleSimulate = () => {
     const pda = loadPresetEngine();
     if (!pda) return;
+    setError(null);
     const result = pda.simulateStepByStep(definition.inputString.trim());
     const last = result.allSteps.length - 1;
     setSim({ steps: result.allSteps, step: last, accepted: result.accepted, timedOut: result.timedOut });
     const primary = getPrimary(result.allSteps[last]);
     if (primary) setActiveNodes([primary.state]);
-    if (result.timedOut) alert('Step limit reached (500 steps). The PDA may have an infinite epsilon cycle.');
+    if (result.timedOut) {
+      setError('Step limit reached (500 steps). The PDA may have an infinite epsilon cycle.');
+    }
   };
 
   const handleStep = () => {
@@ -116,25 +123,9 @@ const PdaSimulator = () => {
   const handleReset = () => {
     setSim({ steps: [], step: -1, accepted: false, timedOut: false });
     setActiveNodes([]);
+    setError(null);
   };
 
-  const graphData = () => {
-    if (!engine) return null;
-    const edgeMap = new Map();
-    engine.transitions.forEach(t => {
-      const key  = `${t.from}->${t.to}`;
-      const inp  = (!t.input  || t.input  === 'ε') ? 'ε' : t.input;
-      const pop  = (!t.pop    || t.pop    === 'ε') ? 'ε' : t.pop;
-      const push = (!t.push   || t.push   === 'ε') ? 'ε' : t.push;
-      const lbl  = `${inp}, ${pop} → ${push}`;
-      if (edgeMap.has(key)) edgeMap.get(key).labels.push(lbl);
-      else edgeMap.set(key, { from: t.from, to: t.to, labels: [lbl] });
-    });
-    const edges = Array.from(edgeMap.values()).map(({ from, to, labels }) => ({
-      from, to, label: labels.join('\n')
-    }));
-    return { states: engine.states, edges, startState: engine.startState, acceptStates: engine.acceptStates };
-  };
 
   const formatMove = (move) => {
     if (!move) return 'Initial configuration';
@@ -161,7 +152,23 @@ const PdaSimulator = () => {
   const activeEdge  = currentMove ? { from: currentMove.from, to: currentMove.to } : null;
   const isRejected  = primary?.status === 'DEAD PATH' || primary?.status?.includes('REJECT');
   const rejectNodes = isRejected ? [primary.state] : [];
-  const graphModel = graphData();
+  const graphModel = useMemo(() => {
+    if (!engine) return null;
+    const edgeMap = new Map();
+    engine.transition.forEach(t => {
+      const key  = `${t.from}->${t.to}`;
+      const inp  = (!t.input  || t.input  === 'ε') ? 'ε' : t.input;
+      const pop  = (!t.pop    || t.pop    === 'ε') ? 'ε' : t.pop;
+      const push = (!t.push   || t.push   === 'ε') ? 'ε' : t.push;
+      const lbl  = `${inp}, ${pop} → ${push}`;
+      if (edgeMap.has(key)) edgeMap.get(key).labels.push(lbl);
+      else edgeMap.set(key, { from: t.from, to: t.to, labels: [lbl] });
+    });
+    const edges = Array.from(edgeMap.values()).map(({ from, to, labels }) => ({
+      from, to, label: labels.join('\n')
+    }));
+    return { states: engine.states, edges, startState: engine.startState, acceptStates: engine.acceptStates };
+  }, [engine]);
   const languageName = LANGUAGE_DETAILS[definition.selectedLanguage]?.name || definition.languageLabel;
   const languageMeaning = LANGUAGE_DETAILS[definition.selectedLanguage]?.meaning || definition.languageMeaning || '';
 
@@ -177,6 +184,8 @@ const PdaSimulator = () => {
           </p>
         </div>
       </div>
+
+      {error && <ErrorBanner message={error} />}
 
       <div className="pda-main-grid">
 
@@ -368,7 +377,7 @@ const PdaSimulator = () => {
           {/* Execution Log */}
           <div className="panel log-panel">
             <div className="log-header-row">
-              <h3 className="panel-header">Execution Log</h3>
+              <h3 className="panel-header">Execution Trace</h3>
               {hasRun && isAtEnd && (
                 <div className={`log-result-pill ${sim.accepted ? 'banner-accept' : 'banner-reject'}`}>
                   {sim.timedOut ? 'Timed Out' : sim.accepted ? 'Accepted' : 'Rejected'}
@@ -394,7 +403,7 @@ const PdaSimulator = () => {
                     className={`log-row${isCur ? ' log-current' : ''}${isAcc ? ' log-accept' : ''}${isDead ? ' log-dead' : ''}`}
                     ref={isCur ? el => el?.scrollIntoView({ block: 'nearest' }) : null}
                   >
-                    <span className="log-step-num">#{stepIdx}</span>
+                    <span className="log-step-num">Step {stepIdx}:</span>
                     <span className="log-state-tag">{cfg.state}</span>
                     <span className="log-move-desc">{formatMove(move)}</span>
                     <span className="log-stack-snap">[{cfg.stack.join(' ') || '∅'}]</span>

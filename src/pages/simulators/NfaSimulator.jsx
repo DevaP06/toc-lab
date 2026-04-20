@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Play, SkipForward, RotateCcw } from 'lucide-react';
 import GraphVisualizer from '../../components/automata/GraphVisualizer';
+import ErrorBanner from '../../components/ui/ErrorBanner';
 import { NFA } from '../../core/nfa';
+import { normalizeEpsilon, parseCSV } from '../../utils/parser';
 import './NfaSimulator.css';
 
 const DEFAULT_NFA = {
@@ -13,54 +15,57 @@ const DEFAULT_NFA = {
   inputString: '01'
 };
 
+const buildNfaFromDefinition = (definition, onError = null) => {
+  try {
+    const statesArr = parseCSV(definition.states);
+    const alphaArr = parseCSV(definition.alphabet);
+    const acceptArr = parseCSV(definition.acceptStates);
+
+    const transObj = {};
+    const lines = definition.transitions.split('\n');
+    lines.forEach(line => {
+      const parts = parseCSV(line);
+      if (parts.length === 3) {
+        const [from, rawSymbol, to] = parts;
+        const symbol = normalizeEpsilon(rawSymbol);
+        if (!transObj[from]) transObj[from] = {};
+        if (!transObj[from][symbol]) transObj[from][symbol] = [];
+
+        if (!transObj[from][symbol].includes(to)) {
+          transObj[from][symbol].push(to);
+        }
+      }
+    });
+
+    const nfa = new NFA(statesArr, alphaArr, definition.startState.trim(), acceptArr, transObj);
+    const validation = nfa.validate();
+    if (!validation.isValid) {
+      if (onError) onError(`NFA Definition Error: ${validation.error}`);
+      return null;
+    }
+
+    return nfa;
+  } catch {
+    if (onError) onError('Error parsing NFA definition.');
+    return null;
+  }
+};
+
 const NfaSimulator = () => {
   const [definition, setDefinition] = useState(DEFAULT_NFA);
-  const [engine, setEngine] = useState(null);
+  const [error, setError] = useState(null);
+  const [engine, setEngine] = useState(() => buildNfaFromDefinition(DEFAULT_NFA));
   const [simulationParams, setSimulationParams] = useState({ steps: [], currentStep: -1, accepted: false });
   const [activeNodes, setActiveNodes] = useState([]);
   const [activeEdges, setActiveEdges] = useState([]);
   const [rejectNodes, setRejectNodes] = useState([]);
 
-  const normalizeEpsilon = (symbol) => {
-    const normalized = String(symbol ?? '').trim();
-    if (!normalized || normalized.toLowerCase() === 'epsilon' || normalized === 'ε') return 'ε';
-    return normalized;
-  };
-  
   const loadNFA = () => {
-    try {
-      const statesArr = definition.states.split(',').map(s => s.trim()).filter(Boolean);
-      const alphaArr = definition.alphabet.split(',').map(s => s.trim()).filter(Boolean);
-      const acceptArr = definition.acceptStates.split(',').map(s => s.trim()).filter(Boolean);
-      
-      const transObj = {};
-      const lines = definition.transitions.split('\n');
-      lines.forEach(line => {
-        const parts = line.split(',').map(p => p.trim());
-        if (parts.length === 3) {
-          const [from, rawSymbol, to] = parts;
-          const symbol = normalizeEpsilon(rawSymbol);
-          if (!transObj[from]) transObj[from] = {};
-          if (!transObj[from][symbol]) transObj[from][symbol] = [];
-          
-          if (!transObj[from][symbol].includes(to)) {
-             transObj[from][symbol].push(to);
-          }
-        }
-      });
-
-      const nfa = new NFA(statesArr, alphaArr, transObj, definition.startState.trim(), acceptArr);
-      const validation = nfa.validate();
-      if (!validation.isValid) {
-        alert("NFA Definition Error: " + validation.error);
-        return null;
-      }
-      setEngine(nfa);
-      return nfa;
-    } catch {
-      alert("Error parsing NFA definition.");
-      return null;
-    }
+    const nfa = buildNfaFromDefinition(definition, setError);
+    if (!nfa) return null;
+    setError(null);
+    setEngine(nfa);
+    return nfa;
   };
 
   const toSet = (value) => {
@@ -133,11 +138,8 @@ const NfaSimulator = () => {
     setActiveNodes([]);
     setActiveEdges([]);
     setRejectNodes([]);
+    setError(null);
   };
-
-  useEffect(() => {
-    loadNFA();
-  }, []); // eslint-disable-line
 
   const formatSet = (setObj) => {
     if (!setObj || setObj.size === 0) return '∅';
@@ -150,6 +152,8 @@ const NfaSimulator = () => {
         <h2>NFA Simulator</h2>
         <p className="text-muted">Define a Nondeterministic Finite Automaton (with ε-transitions) and visualize its parallel computation steps.</p>
       </div>
+
+      {error && <ErrorBanner message={error} />}
 
       <div className="simulator-grid main-container">
         <div className="left-panel">

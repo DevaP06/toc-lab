@@ -87,12 +87,12 @@ const Features = () => {
     },
     {
       tag: '02 / CONVERTERS', title: 'Translate between models.',
-      body: 'Regex → NFA via Thompson construction. NFA → DFA subset construction. FA → Regex state-elimination.',
+      body: 'Regex → NFA via Thompson construction. NFA → DFA via subset construction with epsilon-closure.',
       accent: '#1F3B73', visual: <MiniRegex/>,
     },
     {
       tag: '03 / ANALYZERS', title: 'Minimize. Compare. Prove.',
-      body: 'Collapse equivalent states with Hopcroft. Check language equivalence via bisimulation. See the tape walk.',
+      body: 'Collapse equivalent states with partition refinement minimization. Check language equivalence via product-automaton BFS. See the tape walk.',
       accent: '#7CFFB2', visual: <MiniTape/>,
     },
   ];
@@ -110,7 +110,7 @@ const Features = () => {
             </h2>
           </div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--muted)', maxWidth: 240 }}>
-            Eleven tools organized in three families. Each one runs live, in your browser.
+            Eight tools organized in three families. Each one runs live, in your browser.
           </div>
         </div>
       </Reveal>
@@ -170,7 +170,7 @@ const TOOLS = [
   { fam: 'sim', key: 'tm',  name: 'Turing Machine',   kbd: 'T', blurb: 'Infinite tape, head tracking',     route: '/simulators/tm' },
   { fam: 'cvt', key: 'n2d', name: 'NFA → DFA',        kbd: '1', blurb: 'Subset construction',              route: '/converters/nfa-to-dfa' },
   { fam: 'cvt', key: 'r2n', name: 'Regex → NFA',      kbd: '2', blurb: 'Thompson construction',            route: '/converters/regex-to-nfa' },
-  { fam: 'an',  key: 'min', name: 'DFA Minimization', kbd: 'M', blurb: 'Hopcroft partitioning',            route: '/analyzers/dfa-minimizer' },
+  { fam: 'an',  key: 'min', name: 'DFA Minimization', kbd: 'M', blurb: 'Partition refinement minimization', route: '/analyzers/dfa-minimizer' },
   { fam: 'an',  key: 'eq',  name: 'DFA Equivalence',  kbd: 'E', blurb: 'Language equality check',          route: '/analyzers/equivalence' },
 ];
 

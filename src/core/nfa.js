@@ -2,30 +2,11 @@
  * Core engine for Nondeterministic Finite Automata (NFA)
  */
 export class NFA {
-  constructor(states, alphabet, thirdArg, fourthArg, fifthArg) {
+  constructor(states, alphabet, startState, acceptStates, transition) {
     this.states = new Set(states);
     this.alphabet = new Set(alphabet);
 
-    let transitions;
-    let startState;
-    let acceptStates;
-
-    // Supports both:
-    // 1) (states, alphabet, transitions, startState, acceptStates)
-    // 2) (states, alphabet, startState, acceptStates, transitions)
-    if (typeof thirdArg === 'string') {
-      startState = thirdArg;
-      acceptStates = fourthArg;
-      transitions = fifthArg;
-    } else {
-      transitions = thirdArg;
-      startState = fourthArg;
-      acceptStates = fifthArg;
-    }
-
-    this.transitions = this.normalizeTransitionTable(transitions || {});
-    // Backward-compat alias for older code paths.
-    this.transition = this.transitions;
+    this.transition = this.normalizeTransitionTable(transition || {});
     this.startState = startState;
     this.acceptStates = new Set(acceptStates);
   }
@@ -80,19 +61,23 @@ export class NFA {
       if (!this.states.has(state)) return { isValid: false, error: `Accept state '${state}' is not valid.` };
     }
 
-    for (const fromState in this.transitions) {
+    if (this.states.has('DEAD')) {
+      return { isValid: false, error: "State name 'DEAD' is reserved and cannot be used." };
+    }
+
+    for (const fromState in this.transition) {
       if (!this.states.has(fromState)) {
         return { isValid: false, error: `Transition state '${fromState}' is unknown.` };
       }
 
-      for (const symbol in this.transitions[fromState]) {
+      for (const symbol in this.transition[fromState]) {
         if (symbol !== 'ε' && !this.alphabet.has(symbol)) {
           return { isValid: false, error: `Transition symbol '${symbol}' is not in the alphabet.` };
         }
 
-        const targets = Array.isArray(this.transitions[fromState][symbol])
-          ? this.transitions[fromState][symbol]
-          : [this.transitions[fromState][symbol]];
+        const targets = Array.isArray(this.transition[fromState][symbol])
+          ? this.transition[fromState][symbol]
+          : [this.transition[fromState][symbol]];
 
         for (const target of targets) {
           if (!this.states.has(target)) {
@@ -111,7 +96,7 @@ export class NFA {
     
     while(stack.length > 0) {
       const current = stack.pop();
-      const epsilonTargets = this.transitions[current]?.['ε'] || [];
+      const epsilonTargets = this.transition[current]?.['ε'] || [];
       
       const targetsArray = Array.isArray(epsilonTargets) ? epsilonTargets : [epsilonTargets];
       
@@ -153,7 +138,7 @@ export class NFA {
 
         const nextStates = new Set();
         for (const state of currentStates) {
-           let targets = this.transitions[state]?.[symbol] || [];
+            let targets = this.transition[state]?.[symbol] || [];
            if (!Array.isArray(targets)) targets = [targets];
            for (const t of targets) nextStates.add(t);
         }

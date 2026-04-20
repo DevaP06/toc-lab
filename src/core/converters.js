@@ -12,13 +12,13 @@ export function convertNfaToDfa(nfa) {
     return normalized === 'ε' || normalized === 'epsilon' || normalized === 'eps' || normalized === 'λ';
   };
   const alphabet = Array.from(nfa.alphabet).filter(s => s !== null && s !== '' && !isEpsilon(s));
-  const transitions = nfa.transitions || nfa.transition || {};
+  const transitions = nfa.transition || {};
   const isAccept = (set) => Array.from(set).some(s => nfa.acceptStates.has(s));
   
   // Helper to format a set of states as a string name for the DFA
   const formatSetName = (set) => {
     if (!set || set.size === 0) return 'DEAD';
-    return Array.from(new Set(set)).sort().join('_');
+    return Array.from(new Set(set)).sort().join('|');
   };
 
   const startClosure = nfa.epsilonClosure([nfa.startState]);
@@ -303,52 +303,52 @@ export function convertRegexToNfa(regexStr) {
     }
     const start = newState();
     const accept = newState();
-    const transitions = { [start]: { [symbol]: [accept] } };
-    return { start, accept, transitions, states: [start, accept] };
+    const transition = { [start]: { [symbol]: [accept] } };
+    return { start, accept, transition, states: [start, accept] };
   }
 
   function unionNFA(frag1, frag2) {
     const start = newState();
     const accept = newState();
-    const transitions = mergeTransitions(mergeTransitions(frag1.transitions, frag2.transitions), {
+    const transition = mergeTransitions(mergeTransitions(frag1.transition, frag2.transition), {
       [start]: { [EPSILON]: [frag1.start, frag2.start] },
       [frag1.accept]: { [EPSILON]: [accept] },
       [frag2.accept]: { [EPSILON]: [accept] },
     });
     const states = [start, ...frag1.states, ...frag2.states, accept];
-    return { start, accept, transitions, states };
+    return { start, accept, transition, states };
   }
 
   function concatNFA(frag1, frag2) {
     // Merge frag1.accept's epsilon targets rather than blindly overwriting,
     // in case frag1.accept already has an epsilon entry (defensive merge).
-    const existingEps = frag1.transitions[frag1.accept]?.[EPSILON] || [];
-    const transitions = mergeTransitions(mergeTransitions(frag1.transitions, frag2.transitions), {
+    const existingEps = frag1.transition[frag1.accept]?.[EPSILON] || [];
+    const transition = mergeTransitions(mergeTransitions(frag1.transition, frag2.transition), {
       [frag1.accept]: {
-        ...(frag1.transitions[frag1.accept] || {}),
+        ...(frag1.transition[frag1.accept] || {}),
         [EPSILON]: [...existingEps, frag2.start],
       },
     });
     const states = [...frag1.states, ...frag2.states];
-    return { start: frag1.start, accept: frag2.accept, transitions, states };
+    return { start: frag1.start, accept: frag2.accept, transition, states };
   }
 
   function starNFA(frag) {
     const start = newState();
     const accept = newState();
-    const transitions = mergeTransitions(frag.transitions, {
+    const transition = mergeTransitions(frag.transition, {
       [start]: { [EPSILON]: [frag.start, accept] },
       [frag.accept]: { [EPSILON]: [frag.start, accept] },
     });
     const states = [start, ...frag.states, accept];
-    return { start, accept, transitions, states };
+    return { start, accept, transition, states };
   }
 
   // a+ = a followed by a* — one or more
   function plusNFA(frag) {
     const accept = newState();
-    const existing = frag.transitions[frag.accept] || {};
-    const transitions = mergeTransitions(frag.transitions, {
+    const existing = frag.transition[frag.accept] || {};
+    const transition = mergeTransitions(frag.transition, {
       // From frag's accept: loop back to frag's start OR go to new accept
       [frag.accept]: {
         ...existing,
@@ -356,7 +356,7 @@ export function convertRegexToNfa(regexStr) {
       },
     });
     const states = [...frag.states, accept];
-    return { start: frag.start, accept, transitions, states };
+    return { start: frag.start, accept, transition, states };
   }
 
   const stack = [];
@@ -414,9 +414,9 @@ export function convertRegexToNfa(regexStr) {
 
   // Format to Simulator NFA structure
   const transitionLines = [];
-  for (const from in result.transitions) {
-    for (const symbol in result.transitions[from]) {
-      for (const to of result.transitions[from][symbol]) {
+  for (const from in result.transition) {
+    for (const symbol in result.transition[from]) {
+      for (const to of result.transition[from][symbol]) {
         transitionLines.push(`${from}, ${symbol}, ${to}`);
       }
     }
@@ -430,7 +430,7 @@ export function convertRegexToNfa(regexStr) {
     transitions: transitionLines.join('\n')
   };
 
-  const nfaInstance = new NFA(result.states, alphabetArr, result.transitions, result.start, [result.accept]);
+  const nfaInstance = new NFA(result.states, alphabetArr, result.start, [result.accept], result.transition);
 
   return { nfaDefinitionFormatted: nfaDefinitionObj, nfaInstance, constructionSteps: ["Compiled Regex using Thompson's Construction. Supports |, *, + and any alphanumeric alphabet."], postfix };
 }

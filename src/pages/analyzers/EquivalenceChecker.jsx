@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Scale, Activity } from 'lucide-react';
+import ErrorBanner from '../../components/ui/ErrorBanner';
 import { DFA } from '../../core/dfa';
 import { checkEquivalence } from '../../core/equivalence';
+import { parseCSV } from '../../utils/parser';
 import '../converters/Converter.css';
 
 const DEFAULT_DFA_A = {
@@ -28,9 +30,9 @@ const EquivalenceChecker = () => {
   const [showPairTransitions, setShowPairTransitions] = useState(false);
   
   const parseDFA = (definition) => {
-      const statesArr = definition.states.split(',').map(s => s.trim()).filter(Boolean);
-      const alphaArr = definition.alphabet.split(',').map(s => s.trim()).filter(Boolean);
-      const acceptArr = definition.acceptStates.split(',').map(s => s.trim()).filter(Boolean);
+      const statesArr = parseCSV(definition.states);
+      const alphaArr = parseCSV(definition.alphabet);
+      const acceptArr = parseCSV(definition.acceptStates);
       
       const transObj = {};
       const lines = definition.transitions.split('\n');
@@ -38,7 +40,7 @@ const EquivalenceChecker = () => {
         const trimmed = line.trim();
         if (!trimmed) return;
 
-        const parts = trimmed.split(',').map(p => p.trim());
+        const parts = parseCSV(trimmed);
         if (parts.length !== 3) {
           throw new Error(`Invalid transition format at line ${index + 1}: ${trimmed}`);
         }
@@ -82,11 +84,7 @@ const EquivalenceChecker = () => {
         <p className="text-muted">Compare two Deterministic Finite Automata using BFS on the product automaton, with automatic alphabet union, DFA completion, and shortest counterexample extraction.</p>
       </div>
 
-      {error && (
-        <div className="panel converter-error" role="alert">
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner message={error} />}
 
       <div className="converter-grid">
         <div className="left-panel">

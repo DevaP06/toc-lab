@@ -17,16 +17,17 @@ const useReveal = (threshold = 0.15) => {
   return [ref, shown];
 };
 
-const Reveal = ({ delay = 0, children, as: As = 'div', className = '', style = {} }) => {
+const Reveal = ({ delay = 0, children, as = 'div', className = '', style = {} }) => {
   const [ref, shown] = useReveal();
+  const Tag = as;
   return (
-    <As ref={ref} className={className} style={{
+    <Tag ref={ref} className={className} style={{
       ...style,
       opacity: shown ? 1 : 0,
       transform: shown ? 'translateY(0) scale(1)' : 'translateY(18px) scale(0.98)',
       transition: `opacity 700ms cubic-bezier(0.22,1,0.36,1) ${delay}ms, transform 800ms cubic-bezier(0.22,1,0.36,1) ${delay}ms`,
       willChange: 'transform, opacity',
-    }}>{children}</As>
+    }}>{children}</Tag>
   );
 };
 
@@ -174,7 +175,7 @@ const Hero = ({ auroraVariant, intensity, liveRunning = true }) => (
         <Reveal delay={340}>
           <div style={{ marginTop: 48, display: 'flex', gap: 40, flexWrap: 'wrap' }}>
             {[
-              { k: '11', v: 'Interactive Tools' },
+              { k: '8', v: 'Interactive Tools' },
               { k: '4', v: 'Machine Models' },
               { k: '∞', v: 'Strings Simulated' },
             ].map((s) => (

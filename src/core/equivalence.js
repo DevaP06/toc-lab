@@ -88,7 +88,7 @@ export function checkEquivalence(dfa1, dfa2) {
 }
 
 function pairKey(a, b) {
-  return `${a}||${b}`;
+  return `${a}\x00${b}`;
 }
 
 function displayA(state) {

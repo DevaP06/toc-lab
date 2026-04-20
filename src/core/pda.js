@@ -2,14 +2,14 @@
  * Core engine for Pushdown Automata (PDA)
  */
 export class PDA {
-  constructor(states, inputAlphabet, stackAlphabet, startState, startStackSymbol, acceptStates, transitions) {
+  constructor(states, inputAlphabet, stackAlphabet, startState, startStackSymbol, acceptStates, transition) {
     this.states = new Set(states);
     this.inputAlphabet = new Set(inputAlphabet);
     this.stackAlphabet = new Set(stackAlphabet);
     this.startState = startState;
     this.startStackSymbol = startStackSymbol;
     this.acceptStates = new Set(acceptStates);
-    this.transitions = transitions; // Array of { from, input, pop, push, to }
+    this.transition = transition; // Array of { from, input, pop, push, to }
   }
 
   validate() {
@@ -20,7 +20,7 @@ export class PDA {
 
   // Gets applicable transitions for a configuration
   getApplicableTransitions(state, inputSymbol, stackTop) {
-    return this.transitions.filter(t => 
+    return this.transition.filter(t => 
       t.from === state &&
       (t.input === inputSymbol || t.input === 'ε' || t.input === '') &&
       (t.pop === stackTop || t.pop === 'ε' || t.pop === '')
@@ -59,6 +59,13 @@ export class PDA {
           if (this.acceptStates.has(config.state)) {
             acceptedConfig = config;
             config.status = 'ACCEPT';
+
+            // Record an explicit final level that contains the accepting configuration.
+            allSteps.push(currentConfigs.map(cfg => ({
+              ...cfg,
+              stack: [...cfg.stack],
+              history: [...cfg.history]
+            })));
             break; // Found acceptance — no need to explore further
           }
           // Do NOT mark rejected here yet — epsilon moves below may still reach acceptance
@@ -251,7 +258,7 @@ export function getPDASelectionPreset(type) {
           startState: pda.startState,
           startStack: pda.startStackSymbol,
           acceptStates: [...pda.acceptStates],
-          transitions: pda.transitions
+          transitions: pda.transition
         })
       };
     }
@@ -268,7 +275,7 @@ export function getPDASelectionPreset(type) {
           startState: pda.startState,
           startStack: pda.startStackSymbol,
           acceptStates: [...pda.acceptStates],
-          transitions: pda.transitions
+          transitions: pda.transition
         })
       };
     }
@@ -285,7 +292,7 @@ export function getPDASelectionPreset(type) {
           startState: pda.startState,
           startStack: pda.startStackSymbol,
           acceptStates: [...pda.acceptStates],
-          transitions: pda.transitions
+          transitions: pda.transition
         })
       };
     }
@@ -356,7 +363,7 @@ export function buildLanguageBasedPDA(languageSpec) {
     startState: 'q0',
     startStack: 'Z',
     acceptStates: 'q2',
-    transitions: pda.transitions.map(({ from, input, pop, push, to }) => `${from}, ${input}, ${pop}, ${push}, ${to}`).join('\n'),
+    transitions: pda.transition.map(({ from, input, pop, push, to }) => `${from}, ${input}, ${pop}, ${push}, ${to}`).join('\n'),
     inputString: `${firstSymbol}${firstSymbol}${secondSymbol}${secondSymbol}`,
     pda
   };

@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Play, SkipForward, RotateCcw } from 'lucide-react';
 import GraphVisualizer from '../../components/automata/GraphVisualizer';
+import ErrorBanner from '../../components/ui/ErrorBanner';
 import { DFA } from '../../core/dfa';
+import { parseCSV } from '../../utils/parser';
 import './DfaSimulator.css';
 
 const DEFAULT_DFA = {
@@ -13,43 +15,52 @@ const DEFAULT_DFA = {
   inputString: '110'
 };
 
+const buildDfaFromDefinition = (definition, onError = null) => {
+  try {
+    const statesArr = parseCSV(definition.states);
+    const alphaArr = parseCSV(definition.alphabet);
+    const acceptArr = parseCSV(definition.acceptStates);
+
+    const transObj = {};
+    const lines = definition.transitions.split('\n');
+    lines.forEach(line => {
+      const parts = parseCSV(line);
+      if (parts.length === 3) {
+        const [from, symbol, to] = parts;
+        if (!transObj[from]) transObj[from] = {};
+        transObj[from][symbol] = to;
+      }
+    });
+
+    const dfa = new DFA(statesArr, alphaArr, transObj, definition.startState.trim(), acceptArr);
+    const validation = dfa.validate();
+    if (!validation.isValid) {
+      if (onError) onError(`DFA Definition Error: ${validation.error}`);
+      return null;
+    }
+
+    return dfa;
+  } catch {
+    if (onError) onError('Error parsing DFA definition.');
+    return null;
+  }
+};
+
 const DfaSimulator = () => {
   const [definition, setDefinition] = useState(DEFAULT_DFA);
-  const [engine, setEngine] = useState(null);
+  const [error, setError] = useState(null);
+  const [engine, setEngine] = useState(() => buildDfaFromDefinition(DEFAULT_DFA));
   const [simulationParams, setSimulationParams] = useState({ steps: [], currentStep: -1, accepted: false });
   const [activeNode, setActiveNode] = useState(null);
   const [activeEdge, setActiveEdge] = useState(null);
   
   // Parse and configure DFA
   const loadDFA = () => {
-    try {
-      const statesArr = definition.states.split(',').map(s => s.trim()).filter(Boolean);
-      const alphaArr = definition.alphabet.split(',').map(s => s.trim()).filter(Boolean);
-      const acceptArr = definition.acceptStates.split(',').map(s => s.trim()).filter(Boolean);
-      
-      const transObj = {};
-      const lines = definition.transitions.split('\n');
-      lines.forEach(line => {
-        const parts = line.split(',').map(p => p.trim());
-        if (parts.length === 3) {
-          const [from, symbol, to] = parts;
-          if (!transObj[from]) transObj[from] = {};
-          transObj[from][symbol] = to;
-        }
-      });
-
-      const dfa = new DFA(statesArr, alphaArr, transObj, definition.startState.trim(), acceptArr);
-      const validation = dfa.validate();
-      if (!validation.isValid) {
-        alert("DFA Definition Error: " + validation.error);
-        return null;
-      }
-      setEngine(dfa);
-      return dfa;
-    } catch (e) {
-      alert("Error parsing DFA definition.");
-      return null;
-    }
+    const dfa = buildDfaFromDefinition(definition, setError);
+    if (!dfa) return null;
+    setError(null);
+    setEngine(dfa);
+    return dfa;
   };
 
   const handleRunAll = () => {
@@ -95,11 +106,8 @@ const DfaSimulator = () => {
     setSimulationParams({ steps: [], currentStep: -1, accepted: false });
     setActiveNode(null);
     setActiveEdge(null);
+    setError(null);
   };
-
-  useEffect(() => {
-    loadDFA(); // Load initially to populate graph
-  }, []); // eslint-disable-line
 
   return (
     <div className="dfa-container fade-in">
@@ -107,6 +115,8 @@ const DfaSimulator = () => {
         <h2>DFA Simulator</h2>
         <p className="text-muted">Define a Deterministic Finite Automaton and visualize its computation step-by-step.</p>
       </div>
+
+      {error && <ErrorBanner message={error} />}
 
       <div className="simulator-grid main-container">
         <div className="left-panel">

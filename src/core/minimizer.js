@@ -137,33 +137,8 @@ export function minimizeDFA(dfa, options = { removeDead: false }) {
   let finalStates = [...new Set(Object.values(stateMap))];
 
   if (options.removeDead) {
-    const deadState = finalStates.find((state) => {
-      const row = newTransitions[state] || {};
-      const allSelfLoops = alphabet.length > 0 && alphabet.every(symbol => row[symbol] === state);
-      const notAccept = !newAcceptStates.has(state);
-      return allSelfLoops && notAccept;
-    });
-
-    if (deadState && deadState !== newStart) {
-      const filteredStates = finalStates.filter(s => s !== deadState);
-      const filteredTransitions = {};
-
-      for (const state of filteredStates) {
-        filteredTransitions[state] = {};
-        for (const symbol of alphabet) {
-          const target = newTransitions[state]?.[symbol];
-          if (target && target !== deadState) {
-            filteredTransitions[state][symbol] = target;
-          }
-        }
-      }
-
-      finalStates = filteredStates;
-      Object.keys(newTransitions).forEach(k => delete newTransitions[k]);
-      Object.assign(newTransitions, filteredTransitions);
-
-      steps.push(`6. Removed DEAD sink state '${deadState}' for simplified view.`);
-    }
+    // Keep DEAD to preserve a total transition function for every state/symbol pair.
+    steps.push('6. removeDead=true requested, but DEAD sink is preserved to keep DFA complete and valid.');
   }
 
   console.log('Minimized DFA States:', finalStates);

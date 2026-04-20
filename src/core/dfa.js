@@ -22,6 +22,10 @@ export class DFA {
    * @returns {Object} { isValid, error }
    */
   validate() {
+    if (this.states.has('DEAD')) {
+      return { isValid: false, error: "State name 'DEAD' is reserved and cannot be used." };
+    }
+
     if (!this.states.has(this.startState)) {
       return { isValid: false, error: 'Start state must be in the set of states.' };
     }
