@@ -299,7 +299,7 @@ const HomeFooter = () => (
     display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16,
     fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--muted)',
   }}>
-    <div>TOC Lab  ©  2026 — theoretical made tangible</div>
+    <div>TOC Lab  ©  2026 — made with love by Devashish</div>
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }}/>
       system online

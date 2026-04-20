@@ -75,7 +75,7 @@
 .sidebar-link {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   padding: 8px;
   font-size: 14px;
@@ -96,7 +96,11 @@
 
 .sidebar-link-text {
   display: inline;
-  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
   font-size: 13px;
   font-weight: 500;
 }
@@ -107,6 +111,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  margin-top: 1px;
   border-radius: 9px;
   background: rgba(11, 15, 20, 0.92);
   border: 1px solid rgba(0, 245, 196, 0.22);

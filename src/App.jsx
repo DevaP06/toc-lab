@@ -27,6 +27,24 @@ const AppShell = () => {
   const showChrome = location.pathname !== '/';
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
+  React.useEffect(() => {
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+
+    if (showChrome) {
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+    };
+  }, [showChrome]);
+
   const handleToggleSidebar = () => {
     setSidebarCollapsed(prev => !prev);
   };

@@ -124,20 +124,6 @@ const Hero = ({ auroraVariant, intensity, liveRunning = true }) => (
     }} className="hero-grid">
 
       <div>
-        <Reveal delay={0}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 10,
-            padding: '6px 14px 6px 8px', borderRadius: 999,
-            background: 'rgba(0,245,196,0.08)', border: '1px solid rgba(31,59,115,0.65)',
-            color: 'var(--text)', fontSize: 12, fontFamily: 'var(--font-mono)', letterSpacing: 0.3,
-          }}>
-            <span style={{ width: 20, height: 20, borderRadius: 999, display: 'grid', placeItems: 'center', background: 'rgba(0,245,196,0.18)' }}>
-              <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)', animation: 'dotPulse 1.8s infinite' }}/>
-            </span>
-            v1.2 — live simulation engine
-          </div>
-        </Reveal>
-
         <Reveal delay={80}>
           <h1 style={{
             fontFamily: 'var(--font-display)',
